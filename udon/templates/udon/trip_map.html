@@ -1,0 +1,844 @@
+{% extends 'udon/base.html' %}
+{% load static %}
+
+{% block title %}{{ trip.title }} - 香川のルートマップ{% endblock %}
+
+{% block content %}
+<!-- Top Header matching Screen 1 -->
+<header class="app-header">
+  <button class="header-btn" title="旅の一覧" onclick="toggleMenu()">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </button>
+  <h1 class="header-title" style="font-size: 1.05rem;">{{ trip.title }}</h1>
+  
+  <!-- User Profile & Logout Button -->
+  <div style="display: flex; align-items: center; gap: 6px;">
+    {% if request.user.is_authenticated %}
+      <!-- Notification Bell Button -->
+      <button type="button" class="header-btn header-notification-btn" onclick="toggleNotificationDrawer()" title="通知">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+        </svg>
+        <span class="notification-badge" {% if not unread_notifications_count %}style="display: none;"{% endif %}>
+          {{ unread_notifications_count|default:0 }}
+        </span>
+      </button>
+      <a href="{% url 'udon:profile_edit' %}" style="display: flex; align-items: center; gap: 5px; background: #F8F5EE; border: 1.5px solid rgba(217, 155, 38, 0.4); border-radius: var(--radius-full); padding: 3px 8px 3px 3px; text-decoration: none; transition: all 0.15s ease;" title="ユーザー情報を編集" class="header-profile-link">
+        {% if request.user.profile.avatar_image %}
+          <img src="{{ request.user.profile.avatar_image.url }}" alt="{{ request.user.username }}" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+          <div style="width: 22px; height: 22px; border-radius: var(--radius-full); background: {{ request.user.profile.avatar_color|default:'#E67E22' }}; color: #FFF; display: none; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 800;">
+            {{ request.user.profile.initial|default:'う' }}
+          </div>
+        {% else %}
+          <div style="width: 22px; height: 22px; border-radius: var(--radius-full); background: {{ request.user.profile.avatar_color|default:'#E67E22' }}; color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 800;">
+            {{ request.user.profile.initial|default:'う' }}
+          </div>
+        {% endif %}
+        <span style="font-size: 0.76rem; font-weight: 700; color: var(--text-main); max-width: 65px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          {{ request.user.profile.nickname|default:request.user.username }}
+        </span>
+      </a>
+      <a href="{% url 'udon:logout' %}" class="header-btn" title="ログアウト" style="width: 32px; height: 32px; color: var(--text-muted);" onclick="return confirm('ログアウトしますか？');">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
+      </a>
+    {% else %}
+      <a href="{% url 'udon:login' %}" class="btn-primary-action" style="padding: 4px 10px; font-size: 0.78rem;">ログイン</a>
+    {% endif %}
+  </div>
+</header>
+
+<!-- Main App Content (Fixed 1-Screen Viewport Layout) -->
+<main class="app-content map-screen-layout">
+  <!-- Map Top Search Bar (Search & Add Shops to Trip) -->
+  <div class="map-search-container">
+    <div class="map-search-box">
+      <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input 
+        type="text" 
+        id="map-shop-search-input" 
+        class="map-search-input" 
+        placeholder="うどん店名や地域を検索して追加..." 
+        autocomplete="off"
+      >
+      <button type="button" id="map-search-clear-btn" class="search-clear-btn" style="display: none;" title="クリア">✕</button>
+    </div>
+
+    <!-- Suggestion Dropdown List -->
+    <div id="map-search-suggestions" class="map-search-suggestions" style="display: none;"></div>
+  </div>
+
+  <!-- Interactive Map Section -->
+  <div class="map-wrapper">
+    <div id="map-container" data-stops="{{ stops_json }}" data-trip-id="{{ trip.id }}"></div>
+    
+    <!-- Map Floating Controls (Fit Route & Current Location) -->
+    <div class="map-controls-group" style="position: absolute; right: 16px; bottom: 24px; display: flex; flex-direction: column; gap: 10px; z-index: 500;">
+      <button id="map-fit-route-btn" class="map-control-btn" title="ルート全体を表示" aria-label="ルート全体を表示" style="width: 42px; height: 42px; background-color: #FFFFFF; border-radius: 50%; box-shadow: 0 3px 12px rgba(42, 36, 33, 0.22); border: 1px solid rgba(0, 0, 0, 0.08); display: flex; align-items: center; justify-content: center; cursor: pointer; color: #1E2B37;">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+        </svg>
+      </button>
+      <button id="map-current-location-btn" class="map-control-btn map-current-location-btn" title="現在地へ移動" aria-label="現在地へ移動" style="width: 42px; height: 42px; background-color: #FFFFFF; border-radius: 50%; box-shadow: 0 3px 12px rgba(42, 36, 33, 0.22); border: 1px solid rgba(0, 0, 0, 0.08); display: flex; align-items: center; justify-content: center; cursor: pointer; color: #1E2B37;">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="8"></circle>
+          <line x1="12" y1="2" x2="12" y2="4"></line>
+          <line x1="12" y1="20" x2="12" y2="22"></line>
+          <line x1="2" y1="12" x2="4" y2="12"></line>
+          <line x1="20" y1="12" x2="22" y2="12"></line>
+          <circle cx="12" cy="12" r="3" fill="currentColor"></circle>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Bottom Sheet Card (Resizable / Draggable by border) -->
+  <section class="bottom-sheet-card" id="bottom-sheet">
+    <div class="sheet-drag-area" id="sheet-drag-area" title="境界線を上下にドラッグ、またはタップで拡大/縮小">
+      <div class="sheet-handle-wrapper">
+        <div class="sheet-handle"></div>
+      </div>
+      <div class="sheet-header-row">
+        <span class="sheet-header-title">訪問店舗 (巡回順)</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="sheet-header-status">移動時間</span>
+          <button type="button" id="sheet-toggle-btn" class="sheet-expand-hint" style="background: rgba(217, 155, 38, 0.12); border: 1px solid rgba(217, 155, 38, 0.3); border-radius: 9999px; cursor: pointer; color: var(--accent-amber); font-weight: 700; font-size: 0.76rem; padding: 3px 8px; display: inline-flex; align-items: center; gap: 2px;">
+            <span id="sheet-toggle-label">▲ 広げる</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    {% if trip.memo %}
+      <div style="padding: 4px 16px 8px; font-size: 0.76rem; color: var(--text-muted); display: flex; align-items: flex-start; gap: 6px; border-bottom: 1px dashed var(--border-subtle); background: #FAF8F3;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#D99B26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+        </svg>
+        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ trip.memo }}</span>
+      </div>
+    {% endif %}
+
+    <!-- Shop Order List -->
+    <div class="shop-order-list" id="shop-order-scroll">
+      {% for stop in stops %}
+        <a href="{% url 'udon:shop_detail_in_trip' trip_id=trip.id shop_id=stop.shop.id %}" class="shop-order-item">
+          <div class="shop-order-left">
+            <div class="order-badge-circle" style="background-color: {{ stop.badge_color }};">
+              {{ stop.visit_order }}
+            </div>
+            <span class="shop-order-name">{{ stop.shop.name }}</span>
+          </div>
+          <div class="status-time-pill">
+            {{ stop.travel_time_text }}
+          </div>
+        </a>
+      {% empty %}
+        <div style="text-align: center; padding: 14px 0; color: var(--text-muted); font-size: 0.85rem;">
+          まだ店舗が登録されていません。<br>
+          <a href="{% url 'udon:trip_edit' trip_id=trip.id %}" style="color: var(--accent-amber); font-weight: 700;">＋店舗を追加する</a>
+        </div>
+      {% endfor %}
+    </div>
+
+    <div style="margin-top: 10px; display: flex; gap: 8px;">
+      <a href="{% url 'udon:trip_edit' trip_id=trip.id %}" class="btn-primary-action" style="background: var(--accent-navy); padding: 9px 14px; font-size: 0.85rem;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+        <span>旅程を編集・順序並び替え</span>
+      </a>
+    </div>
+  </section>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'udon/js/map_route.js' %}?v=20260905_3"></script>
+{% if GOOGLE_MAPS_API_KEY %}
+  <script>
+    window.GOOGLE_MAPS_ACTIVE = true;
+    window.gm_authFailure = function() {
+      console.warn('Google Maps authentication failed (e.g. HTTP Referrer restriction). Falling back to Leaflet map.');
+      window.GOOGLE_MAPS_ACTIVE = false;
+      if (window.initLeafletMap) window.initLeafletMap();
+    };
+  </script>
+  <script src="{% static 'udon/js/google_map_route.js' %}?v=20260905_3"></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAPS_API_KEY }}&libraries=places&language=ja&region=JP&callback=initGoogleMapRoute" async defer onerror="window.initLeafletMap && window.initLeafletMap()"></script>
+  <script>
+    // Failsafe timeout: if Google Maps hasn't rendered within 2.5 seconds, render Leaflet map
+    setTimeout(function() {
+      const container = document.getElementById('map-container');
+      if (container && !container.querySelector('.gm-style') && !container.hasAttribute('data-leaflet-initialized')) {
+        if (window.initLeafletMap) window.initLeafletMap();
+      }
+    }, 2500);
+  </script>
+{% else %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      if (window.initLeafletMap) window.initLeafletMap();
+    });
+  </script>
+{% endif %}
+
+<script>
+function toggleMenu() {
+  window.location.href = "{% url 'udon:trip_list' %}";
+}
+
+/* Robust Interactive Draggable / Resizable Bottom Sheet */
+document.addEventListener('DOMContentLoaded', function() {
+  window.scrollTo(0, 0);
+  const sheet = document.getElementById('bottom-sheet');
+  const dragArea = document.getElementById('sheet-drag-area');
+  const toggleBtn = document.getElementById('sheet-toggle-btn');
+  const toggleLabel = document.getElementById('sheet-toggle-label');
+  if (!sheet || !dragArea) return;
+
+  const defaultHeight = 220;
+  let isDragging = false;
+  let startY = 0;
+  let startHeight = 0;
+  let hasMoved = false;
+
+  function getMaxHeight() {
+    return Math.min(window.innerHeight * 0.70, window.innerHeight - 100);
+  }
+
+  function triggerMapResize() {
+    window.dispatchEvent(new Event('resize'));
+    if (window.leafletMapInstance) {
+      window.leafletMapInstance.invalidateSize();
+    }
+    if (window.googleMapInstance && typeof google !== 'undefined' && google.maps) {
+      google.maps.event.trigger(window.googleMapInstance, 'resize');
+    }
+  }
+
+  function updateToggleLabel(isExp) {
+    if (toggleLabel) {
+      toggleLabel.textContent = isExp ? '▼ 閉じる' : '▲ 広げる';
+    }
+    if (isExp) {
+      sheet.classList.add('is-expanded');
+    } else {
+      sheet.classList.remove('is-expanded');
+    }
+  }
+
+  function applyHeight(height, smooth = true) {
+    if (smooth) {
+      sheet.classList.remove('is-dragging');
+    } else {
+      sheet.classList.add('is-dragging');
+    }
+    sheet.style.height = height + 'px';
+
+    const maxHeight = getMaxHeight();
+    const isExp = (height > (defaultHeight + maxHeight) / 2);
+    updateToggleLabel(isExp);
+  }
+
+  function toggleSheet() {
+    const maxHeight = getMaxHeight();
+    const currentH = sheet.offsetHeight;
+    if (currentH > (defaultHeight + 30)) {
+      // Close
+      applyHeight(defaultHeight, true);
+    } else {
+      // Expand
+      applyHeight(maxHeight, true);
+    }
+    setTimeout(triggerMapResize, 320);
+  }
+
+  // Handle Toggle Button Specifically (Prevent bubbling to drag area)
+  if (toggleBtn) {
+    const handleToggleClick = function(e) {
+      e.stopPropagation();
+      e.preventDefault();
+      toggleSheet();
+    };
+    toggleBtn.addEventListener('click', handleToggleClick);
+    toggleBtn.addEventListener('touchend', function(e) {
+      e.stopPropagation();
+      e.preventDefault();
+      toggleSheet();
+    });
+    toggleBtn.addEventListener('touchstart', function(e) {
+      e.stopPropagation();
+    }, { passive: false });
+    toggleBtn.addEventListener('mousedown', function(e) {
+      e.stopPropagation();
+    });
+  }
+
+  // --- Drag / Touch Handling for Drag Area ---
+  function onDragStart(clientY) {
+    isDragging = true;
+    hasMoved = false;
+    startY = clientY;
+    startHeight = sheet.offsetHeight;
+    sheet.classList.add('is-dragging');
+  }
+
+  function onDragMove(clientY) {
+    if (!isDragging) return;
+    const deltaY = startY - clientY;
+    if (Math.abs(deltaY) > 4) {
+      hasMoved = true;
+    }
+    const maxHeight = getMaxHeight();
+    const minHeight = 140;
+    let newHeight = startHeight + deltaY;
+    newHeight = Math.max(minHeight, Math.min(maxHeight + 30, newHeight));
+    sheet.style.height = newHeight + 'px';
+  }
+
+  function onDragEnd(clientY) {
+    if (!isDragging) return;
+    isDragging = false;
+    sheet.classList.remove('is-dragging');
+
+    const maxHeight = getMaxHeight();
+    const currentHeight = sheet.offsetHeight;
+    const deltaY = startY - clientY;
+
+    if (!hasMoved || Math.abs(deltaY) < 6) {
+      // Tap on the border / handle
+      toggleSheet();
+      return;
+    }
+
+    if (deltaY > 30 || currentHeight > (defaultHeight + maxHeight) / 2) {
+      applyHeight(maxHeight, true);
+    } else {
+      applyHeight(defaultHeight, true);
+    }
+    setTimeout(triggerMapResize, 320);
+  }
+
+  // Touch Events (Mobile)
+  dragArea.addEventListener('touchstart', function(e) {
+    if (e.touches.length === 1) {
+      onDragStart(e.touches[0].clientY);
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchmove', function(e) {
+    if (isDragging && e.touches.length === 1) {
+      onDragMove(e.touches[0].clientY);
+      if (e.cancelable) e.preventDefault();
+    }
+  }, { passive: false });
+
+  window.addEventListener('touchend', function(e) {
+    if (isDragging) {
+      const clientY = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0].clientY : startY;
+      onDragEnd(clientY);
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchcancel', function(e) {
+    if (isDragging) {
+      onDragEnd(startY);
+    }
+  }, { passive: true });
+
+  // Mouse Events (PC)
+  dragArea.addEventListener('mousedown', function(e) {
+    if (e.button === 0) {
+      onDragStart(e.clientY);
+      e.preventDefault();
+    }
+  });
+
+  window.addEventListener('mousemove', function(e) {
+    if (isDragging) {
+      onDragMove(e.clientY);
+    }
+  });
+
+  window.addEventListener('mouseup', function(e) {
+    if (isDragging) {
+      onDragEnd(e.clientY);
+    }
+  });
+});
+
+/* Map Shop Search, Preview Pin & Add to Trip Handler */
+let currentPreviewMarker = null;
+let currentPreviewInfoWindow = null;
+let currentCandidateShop = null;
+
+function closeShopPreviewCard() {
+  const card = document.getElementById('shop-preview-add-card');
+  if (card) card.style.display = 'none';
+  if (currentPreviewMarker) {
+    if (window.leafletMapInstance && window.L) {
+      window.leafletMapInstance.removeLayer(currentPreviewMarker);
+    } else if (currentPreviewMarker.setMap) {
+      currentPreviewMarker.setMap(null);
+    }
+    currentPreviewMarker = null;
+  }
+  if (currentPreviewInfoWindow && currentPreviewInfoWindow.close) {
+    currentPreviewInfoWindow.close();
+    currentPreviewInfoWindow = null;
+  }
+  currentCandidateShop = null;
+}
+
+function showShopPreviewOnMap(shop) {
+  currentCandidateShop = shop;
+  const lat = parseFloat(shop.lat);
+  const lng = parseFloat(shop.lng);
+  if (isNaN(lat) || isNaN(lng)) {
+    console.error('Invalid coordinates:', shop);
+    return;
+  }
+
+  // Retrieve existing trip stops from data attribute
+  const mapContainer = document.getElementById('map-container');
+  const rawStopsData = mapContainer ? mapContainer.getAttribute('data-stops') : null;
+  let currentStops = [];
+  try {
+    currentStops = JSON.parse(rawStopsData || '[]');
+  } catch (e) {}
+
+  // 1. Google Maps focus & bounds fitting
+  if (window.googleMapInstance && typeof google !== 'undefined' && google.maps) {
+    const targetPos = new google.maps.LatLng(lat, lng);
+    const bounds = new google.maps.LatLngBounds();
+    bounds.extend(targetPos);
+
+    let hasOtherPins = false;
+    currentStops.forEach(st => {
+      if (st.lat && st.lng) {
+        bounds.extend(new google.maps.LatLng(parseFloat(st.lat), parseFloat(st.lng)));
+        hasOtherPins = true;
+      }
+    });
+
+    if (hasOtherPins) {
+      // Fit bounds so all current trip pins and the candidate pin are visible
+      window.googleMapInstance.fitBounds(bounds, { top: 80, right: 60, bottom: 220, left: 60 });
+      // Prevent zooming in excessively if pins are very close
+      const listener = google.maps.event.addListenerOnce(window.googleMapInstance, 'idle', function() {
+        if (window.googleMapInstance.getZoom() > 14) {
+          window.googleMapInstance.setZoom(14);
+        }
+      });
+    } else {
+      window.googleMapInstance.setCenter(targetPos);
+      window.googleMapInstance.setZoom(13.5);
+    }
+
+    if (currentPreviewMarker) {
+      currentPreviewMarker.setMap(null);
+    }
+    if (currentPreviewInfoWindow) {
+      currentPreviewInfoWindow.close();
+    }
+
+    currentPreviewMarker = new google.maps.Marker({
+      position: targetPos,
+      map: window.googleMapInstance,
+      title: shop.name,
+      animation: google.maps.Animation.DROP,
+      zIndex: 9999,
+    });
+
+    currentPreviewInfoWindow = new google.maps.InfoWindow({
+      content: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif; padding: 4px; min-width: 190px;">
+          <div style="font-size: 10px; font-weight: 800; color: #D99B26; margin-bottom: 2px;">★ 追加候補の店舗</div>
+          <div style="font-weight: 800; font-size: 14px; color: #2A2421; margin-bottom: 2px;">${shop.name}</div>
+          <div style="font-size: 12px; font-weight: 700; color: #2A2421; margin-bottom: 4px;">この店を旅程に追加しますか？</div>
+          <div style="font-size: 11px; color: #7A726D; margin-bottom: 8px;">${shop.address || '香川県'}</div>
+          <button onclick="triggerConfirmAddShop()" style="width: 100%; background: #D99B26; color: #FFF; border: none; border-radius: 9999px; padding: 8px 12px; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: 0 2px 6px rgba(217,155,38,0.4);">＋ この店を旅程に追加</button>
+        </div>
+      `
+    });
+    currentPreviewInfoWindow.open(window.googleMapInstance, currentPreviewMarker);
+  }
+  
+  // 2. Leaflet focus & bounds fitting
+  if (window.leafletMapInstance && window.L) {
+    const bounds = L.latLngBounds([[lat, lng]]);
+    let hasOtherPins = false;
+    currentStops.forEach(st => {
+      if (st.lat && st.lng) {
+        bounds.extend([parseFloat(st.lat), parseFloat(st.lng)]);
+        hasOtherPins = true;
+      }
+    });
+
+    if (hasOtherPins) {
+      window.leafletMapInstance.fitBounds(bounds, {
+        paddingTopLeft: [50, 70],
+        paddingBottomRight: [50, 200],
+        maxZoom: 14,
+        animate: true
+      });
+    } else {
+      window.leafletMapInstance.setView([lat, lng], 13.5, { animate: true });
+    }
+    
+    if (currentPreviewMarker) {
+      window.leafletMapInstance.removeLayer(currentPreviewMarker);
+    }
+
+    const previewIcon = L.divIcon({
+      className: 'preview-pin-wrapper',
+      html: `
+        <div class="preview-pin-pulse"></div>
+        <div style="
+          width: 38px;
+          height: 38px;
+          background: #D99B26;
+          border: 3px solid #FFFFFF;
+          border-radius: 50% 50% 50% 0;
+          transform: rotate(-45deg);
+          box-shadow: 0 4px 14px rgba(217, 155, 38, 0.6);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          animation: bouncePin 0.4s ease;
+          position: relative;
+          z-index: 10;
+        ">
+          <span style="transform: rotate(45deg); color: #FFF; font-size: 16px; font-weight: 900;">★</span>
+        </div>
+      `,
+      iconSize: [38, 38],
+      iconAnchor: [19, 38],
+      popupAnchor: [0, -38],
+    });
+
+    currentPreviewMarker = L.marker([lat, lng], { icon: previewIcon, zIndexOffset: 9999 }).addTo(window.leafletMapInstance);
+
+    let scoreTag = '';
+    if (shop.score) {
+      scoreTag += `<span style="color: #E67E22; font-weight: 800; font-size: 11px;">★ ${shop.score}</span>`;
+    }
+    if (shop.google_rating) {
+      scoreTag += ` <span style="color: #1E293B; font-weight: 700; font-size: 10px; background: #F1F5F9; border: 1px solid #CBD5E1; padding: 1px 4px; border-radius: 3px;"><span style="color: #4285F4; font-weight: 900;">G</span> ★${shop.google_rating}</span>`;
+    }
+
+    const popupHtml = `
+      <div class="pin-popup-container">
+        <span class="pin-popup-badge">★ 追加候補の店舗</span>
+        <div class="pin-popup-title">${shop.name}</div>
+        <div class="pin-popup-question">この店を旅程に追加しますか？</div>
+        <div style="font-size: 11px; color: #7A726D; margin-bottom: 8px;">
+          ${shop.address || '香川県'}
+          ${scoreTag ? `<div style="margin-top: 3px;">${scoreTag}</div>` : ''}
+        </div>
+        <button type="button" class="pin-popup-add-btn" onclick="triggerConfirmAddShop()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span>この店を旅程に追加</span>
+        </button>
+      </div>
+    `;
+    currentPreviewMarker.bindPopup(popupHtml, { autoPan: true, closeButton: true, offset: [0, -10] }).openPopup();
+  }
+
+  // Close suggestions
+  const suggestionsBox = document.getElementById('map-search-suggestions');
+  if (suggestionsBox) suggestionsBox.style.display = 'none';
+}
+
+window.initGooglePlacesMapSearch = function() {
+  const searchInput = document.getElementById('map-shop-search-input');
+  if (!searchInput || typeof google === 'undefined' || !google.maps || !google.maps.places) return;
+
+  const kagawaBounds = new google.maps.LatLngBounds(
+    new google.maps.LatLng(34.0, 133.4),
+    new google.maps.LatLng(34.6, 134.6)
+  );
+
+  const autocomplete = new google.maps.places.Autocomplete(searchInput, {
+    bounds: kagawaBounds,
+    componentRestrictions: { country: 'jp' },
+    fields: ['place_id', 'name', 'formatted_address', 'geometry', 'types', 'rating', 'user_ratings_total'],
+  });
+
+  autocomplete.addListener('place_changed', function() {
+    const place = autocomplete.getPlace();
+    if (place && place.geometry && place.geometry.location) {
+      const pLat = (typeof place.geometry.location.lat === 'function') ? place.geometry.location.lat() : place.geometry.location.lat;
+      const pLng = (typeof place.geometry.location.lng === 'function') ? place.geometry.location.lng() : place.geometry.location.lng;
+      const shopObj = {
+        id: null,
+        name: place.name || searchInput.value,
+        address: place.formatted_address || '香川県',
+        lat: pLat,
+        lng: pLng,
+        place_id: place.place_id,
+        score: null,
+        google_rating: place.rating || null,
+        google_user_ratings_total: place.user_ratings_total || 0,
+      };
+      showShopPreviewOnMap(shopObj);
+    }
+  });
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+  const searchInput = document.getElementById('map-shop-search-input');
+  const clearBtn = document.getElementById('map-search-clear-btn');
+  const suggestionsBox = document.getElementById('map-search-suggestions');
+  const confirmAddBtn = document.getElementById('btn-confirm-add-shop');
+  const tripId = "{{ trip.id }}";
+  let searchTimeout = null;
+
+  if (typeof google !== 'undefined' && google.maps && google.maps.places) {
+    initGooglePlacesMapSearch();
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function() {
+      if (searchInput) {
+        searchInput.value = '';
+        searchInput.focus();
+      }
+      if (suggestionsBox) {
+        suggestionsBox.style.display = 'none';
+        suggestionsBox.innerHTML = '';
+      }
+      if (currentPreviewMarker) {
+        if (window.leafletMapInstance && window.L) {
+          window.leafletMapInstance.removeLayer(currentPreviewMarker);
+        } else if (currentPreviewMarker.setMap) {
+          currentPreviewMarker.setMap(null);
+        }
+        currentPreviewMarker = null;
+      }
+    });
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      const query = searchInput.value.trim();
+      clearTimeout(searchTimeout);
+
+      if (!query) {
+        if (suggestionsBox) {
+          suggestionsBox.style.display = 'none';
+          suggestionsBox.innerHTML = '';
+        }
+        return;
+      }
+
+      searchTimeout = setTimeout(() => {
+        fetch(`/api/shops/search/?q=${encodeURIComponent(query)}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.status === 'ok' && data.results.length > 0) {
+              renderSuggestions(data.results);
+            } else {
+              if (suggestionsBox) {
+                suggestionsBox.innerHTML = '<div style="padding: 12px; font-size: 0.85rem; color: var(--text-muted); text-align: center;">該当する店舗が見つかりませんでした</div>';
+                suggestionsBox.style.display = 'block';
+              }
+            }
+          });
+      }, 300);
+    });
+  }
+
+  function renderSuggestions(shops) {
+    if (!suggestionsBox) return;
+    suggestionsBox.innerHTML = '';
+    suggestionsBox.style.display = 'block';
+
+    shops.forEach(s => {
+      const item = document.createElement('div');
+      item.className = 'suggestion-item';
+      const isGoogle = (s.source === 'google');
+
+      let metaScore = '';
+      if (s.score) {
+        metaScore += `<span style="color: #E67E22; font-weight: 700;">★ ${s.score}</span> `;
+      }
+      if (s.google_rating) {
+        metaScore += `<span style="color: #1E293B; font-weight: 700; font-size: 0.72rem; background: #F1F5F9; border: 1px solid #CBD5E1; padding: 1px 4px; border-radius: 3px;"><span style="color: #4285F4; font-weight: 900;">G</span> ★${s.google_rating}</span>`;
+      }
+      if (!metaScore) {
+        metaScore = `<span style="color: #94A3B8; font-size: 0.75rem;">未評価</span>`;
+      }
+
+      const iconSvg = isGoogle
+        ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>`
+        : `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#D99B26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11c0 4.97 4.03 9 9 9s9-4.03 9-9H3z"></path><path d="M6 11V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4"></path><line x1="3" y1="11" x2="21" y2="11"></line></svg>`;
+
+      item.innerHTML = `
+        <div class="suggestion-item-left">
+          <div class="suggestion-icon" style="${isGoogle ? 'background: rgba(30, 43, 55, 0.1); color: var(--accent-navy);' : 'background: rgba(217, 155, 38, 0.12); color: var(--accent-amber);'}">
+            ${iconSvg}
+          </div>
+          <div class="suggestion-info">
+            <span class="suggestion-name">${s.name}</span>
+            <span class="suggestion-meta">${s.address || '香川県'} · ${metaScore}</span>
+          </div>
+        </div>
+        <div class="suggestion-add-tag">地図で見る ＋</div>
+      `;
+
+      item.addEventListener('click', () => {
+        searchInput.value = s.name;
+        showShopPreviewOnMap(s);
+      });
+
+      suggestionsBox.appendChild(item);
+    });
+
+    suggestionsBox.style.display = 'block';
+  }
+
+  // Global function called from pin popup or preview card
+  window.triggerConfirmAddShop = function() {
+    if (!currentCandidateShop || !tripId) return;
+
+    if (confirmAddBtn) {
+      confirmAddBtn.disabled = true;
+      confirmAddBtn.textContent = '旅程に追加中...';
+    }
+
+    const popupBtn = document.querySelector('.pin-popup-add-btn');
+    if (popupBtn) {
+      popupBtn.disabled = true;
+      popupBtn.textContent = '追加中...';
+    }
+
+    const formData = new FormData();
+    if (currentCandidateShop.id) {
+      formData.append('shop_id', currentCandidateShop.id);
+    } else {
+      formData.append('name', currentCandidateShop.name);
+      formData.append('address', currentCandidateShop.address || '香川県');
+      formData.append('lat', currentCandidateShop.lat);
+      formData.append('lng', currentCandidateShop.lng);
+      formData.append('place_id', currentCandidateShop.place_id || '');
+      if (currentCandidateShop.google_rating) {
+        formData.append('rating', currentCandidateShop.google_rating);
+      }
+      if (currentCandidateShop.google_user_ratings_total) {
+        formData.append('user_ratings_total', currentCandidateShop.google_user_ratings_total);
+      }
+    }
+    formData.append('travel_time', '車で18分');
+
+    function getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          if (cookie.substring(0, name.length + 1) === (name + '=')) {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    }
+    const csrftoken = getCookie('csrftoken') || document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+
+    fetch(`/api/trips/${tripId}/add-stop/`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrftoken },
+      body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === 'ok') {
+        showNotification(`「${currentCandidateShop.name}」を旅程に追加しました！✨`);
+        setTimeout(() => {
+          window.location.reload();
+        }, 800);
+      } else {
+        alert('店舗の追加に失敗しました: ' + (data.message || 'エラー'));
+        if (confirmAddBtn) {
+          confirmAddBtn.disabled = false;
+          confirmAddBtn.innerHTML = `
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>この店を旅程に追加する</span>
+          `;
+        }
+        if (popupBtn) {
+          popupBtn.disabled = false;
+          popupBtn.textContent = 'この店を旅程に追加';
+        }
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      alert('追加通信中にエラーが発生しました');
+      if (confirmAddBtn) confirmAddBtn.disabled = false;
+    });
+  };
+
+  // Confirm and Add Stop to Trip
+  if (confirmAddBtn) {
+    confirmAddBtn.addEventListener('click', function() {
+      window.triggerConfirmAddShop();
+    });
+  }
+
+  function showNotification(msg) {
+    let toast = document.getElementById('app-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'app-toast';
+      toast.className = 'toast-msg';
+      toast.style.position = 'fixed';
+      toast.style.top = '70px';
+      toast.style.left = '50%';
+      toast.style.transform = 'translateX(-50%)';
+      toast.style.zIndex = '9999';
+      toast.style.backgroundColor = '#1E2B37';
+      toast.style.color = '#FFF';
+      toast.style.padding = '10px 18px';
+      toast.style.borderRadius = '9999px';
+      toast.style.fontSize = '13px';
+      toast.style.fontWeight = '700';
+      toast.style.boxShadow = '0 6px 18px rgba(0,0,0,0.25)';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.style.display = 'block';
+    setTimeout(() => {
+      toast.style.display = 'none';
+    }, 2800);
+  }
+
+  // Close suggestions on outside click
+  document.addEventListener('click', function(e) {
+    if (suggestionsBox && !e.target.closest('.map-search-container')) {
+      suggestionsBox.style.display = 'none';
+    }
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends 'udon/base.html' %}
+{% load static %}
+
+{% block title %}新規登録 - 香川うどん巡礼{% endblock %}
+
+{% block content %}
+<header class="app-header">
+  <a href="{% url 'udon:login' %}" class="header-btn" title="戻る">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <path d="m15 18-6-6 6-6"/>
+    </svg>
+  </a>
+  <h1 class="header-title">新規アカウント登録</h1>
+  <div style="width: 38px;"></div>
+</header>
+
+<main class="app-content" style="padding: 24px 18px 80px;">
+  <div class="trip-form-card">
+    <form method="POST">
+      {% csrf_token %}
+      <div class="form-group">
+        <label class="form-label">ユーザー名</label>
+        <input type="text" name="username" class="form-input" required placeholder="例: udon_taro">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">メールアドレス</label>
+        <input type="email" name="email" class="form-input" required placeholder="taro@example.com">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">パスワード</label>
+        <input type="password" name="password" class="form-input" required placeholder="••••••••">
+      </div>
+
+      <div style="margin-top: 16px;">
+        <button type="submit" class="btn-primary-action">
+          アカウントを作成する
+        </button>
+      </div>
+    </form>
+
+    <div style="margin-top: 14px; text-align: center;">
+      <a href="{% url 'udon:login' %}" style="font-size: 0.85rem; color: var(--accent-amber); font-weight: 700; text-decoration: none;">
+        すでにアカウントをお持ちの方はこちら (ログイン) →
+      </a>
+    </div>
+  </div>
+</main>
+{% endblock %}

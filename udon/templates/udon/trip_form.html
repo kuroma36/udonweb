@@ -1,0 +1,614 @@
+{% extends 'udon/base.html' %}
+{% load static %}
+
+{% block title %}旅行管理作成 - 香川うどん巡礼{% endblock %}
+
+{% block content %}
+<!-- Top Header matching Screen 3 -->
+<header class="app-header">
+  {% if trip %}
+    <a href="{% url 'udon:trip_map' trip_id=trip.id %}" class="header-btn" title="戻る">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m15 18-6-6 6-6"/>
+      </svg>
+    </a>
+  {% else %}
+    <a href="{% url 'udon:home' %}" class="header-btn" title="戻る">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m15 18-6-6 6-6"/>
+      </svg>
+    </a>
+  {% endif %}
+  <h1 class="header-title">旅行管理作成</h1>
+  <div style="display: flex; align-items: center; gap: 6px;">
+    {% if request.user.is_authenticated %}
+      <div style="display: flex; align-items: center; gap: 5px; background: #F8F5EE; border: 1px solid var(--border-subtle); border-radius: var(--radius-full); padding: 3px 8px 3px 3px;" title="{{ request.user.profile.nickname|default:request.user.username }}さん">
+        <div style="width: 22px; height: 22px; border-radius: var(--radius-full); background: {{ request.user.profile.avatar_color|default:'#E67E22' }}; color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 800;">
+          {{ request.user.profile.initial|default:'う' }}
+        </div>
+        <span style="font-size: 0.76rem; font-weight: 700; color: var(--text-main); max-width: 65px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          {{ request.user.profile.nickname|default:request.user.username }}
+        </span>
+      </div>
+      <a href="{% url 'udon:logout' %}" class="header-btn" title="ログアウト" style="width: 32px; height: 32px; color: var(--text-muted);" onclick="return confirm('ログアウトしますか？');">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" y1="12" x2="9" y2="12"></line>
+        </svg>
+      </a>
+    {% else %}
+      <div style="width: 38px;"></div>
+    {% endif %}
+  </div>
+</header>
+
+<main class="app-content" style="padding: 16px 16px 80px;">
+  <form method="POST" id="trip-manage-form">
+    {% csrf_token %}
+    
+    <!-- Trip Form Card matching Screen 3 -->
+    <div class="trip-form-card">
+      <!-- Title Input -->
+      <div class="form-group">
+        <label class="form-label" for="id_title">旅行タイトル</label>
+        <input 
+          type="text" 
+          id="id_title" 
+          name="title" 
+          class="form-input" 
+          value="{% if trip %}{{ trip.title }}{% else %}香川うどん巡礼{% endif %}"
+          required
+        >
+      </div>
+
+      <!-- Date Input (Single day) -->
+      <div class="form-group">
+        <label class="form-label" for="id_date">巡礼日程</label>
+        <div class="date-box" style="width: 100%; max-width: 260px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7A726D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+          <input 
+            type="date" 
+            id="id_date"
+            name="date" 
+            value="{% if trip %}{{ trip.display_date|date:'Y-m-d' }}{% else %}{{ today }}{% endif %}"
+            required
+            style="flex: 1; border: none; background: transparent; font-size: 0.95rem; font-weight: 700; color: var(--text-main); outline: none;"
+          >
+        </div>
+      </div>
+
+      <!-- Memo Input -->
+      <div class="form-group">
+        <label class="form-label" for="id_memo">旅のメモ・心得（任意）</label>
+        <textarea 
+          id="id_memo" 
+          name="memo" 
+          class="form-input" 
+          rows="2" 
+          placeholder="集合場所や持ち物、気になるメニューなどを自由にメモ..."
+          style="resize: vertical; font-size: 0.88rem;"
+        >{% if trip %}{{ trip.memo }}{% endif %}</textarea>
+      </div>
+
+      <!-- Members Section matching Screen 3 -->
+      <div class="form-group">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <label class="form-label" style="margin-bottom: 0;">参加メンバー (誘われた旅人のみ閲覧可能)</label>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">✕で解除 / ＋で招待</span>
+        </div>
+        <div class="members-avatar-row" id="members-container">
+          {% if trip and members %}
+            {% for m in members %}
+              <div class="member-avatar-item" data-member-name="{{ m.name }}" data-member-id="{{ m.id }}" style="background-color: {{ m.avatar_color }};" title="{{ m.name }} ({% if m.role == 'owner' %}主催者{% else %}メンバー{% endif %})">
+                {% if m.role == 'owner' %}
+                  <span class="member-owner-crown" title="主催者">👑</span>
+                {% endif %}
+                {% if m.avatar_image %}
+                  <img src="{{ m.avatar_image }}" alt="{{ m.name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                  <span style="display: none; align-items: center; justify-content: center; width: 100%; height: 100%;">{{ m.initial }}</span>
+                {% else %}
+                  <span>{{ m.initial }}</span>
+                {% endif %}
+                {% if m.role != 'owner' %}
+                  <button type="button" class="member-remove-badge" onclick="removeMember(this, '{{ m.id }}', '{{ m.name }}')" title="「{{ m.name }}」さんを外す">✕</button>
+                {% endif %}
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="member-avatar-item" data-member-name="{{ request.user.profile.nickname|default:request.user.username }}" style="background-color: {{ request.user.profile.avatar_color|default:'#E67E22' }};" title="{{ request.user.profile.nickname|default:request.user.username }} (主催者)">
+              <span class="member-owner-crown" title="主催者">👑</span>
+              {% if request.user.profile.avatar_image %}
+                <img src="{{ request.user.profile.avatar_image.url }}" alt="{{ request.user.username }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <span style="display: none; align-items: center; justify-content: center; width: 100%; height: 100%;">{{ request.user.profile.initial|default:'う' }}</span>
+              {% else %}
+                <span>{{ request.user.profile.initial|default:'う' }}</span>
+              {% endif %}
+            </div>
+          {% endif %}
+          <button type="button" class="add-member-btn" onclick="openMemberInviteModal()" title="メンバーを招待・追加">＋</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drag and Drop Stop List Section matching Screen 3 -->
+    <div class="dnd-section">
+      <h2 class="dnd-header-title">ドラッグ と ドロップ ストップリスト</h2>
+      <p class="dnd-header-desc">うどんの店に行き予定を再建築できるよう。</p>
+
+      <!-- DND List Container -->
+      <div class="dnd-stop-list" id="dnd-stop-list" data-trip-id="{% if trip %}{{ trip.id }}{% endif %}">
+        {% if stops %}
+          {% for stop in stops %}
+            <div class="dnd-stop-item" data-stop-id="{{ stop.id }}">
+              <div class="dnd-item-left">
+                <span class="drag-handle-icon">⠿</span>
+                <span class="dnd-shop-title">{{ stop.shop.name }}</span>
+              </div>
+              <div class="dnd-item-right">
+                <button type="button" class="dnd-action-btn btn-delete-stop" title="削除">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                </button>
+                <span class="dnd-action-btn" title="ドラッグして並び替え">✥</span>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div id="empty-stops-placeholder" style="text-align: center; padding: 24px 12px; color: var(--text-muted); font-size: 0.85rem; border: 1px dashed var(--border-subtle); border-radius: var(--radius-md);">
+            まだ店舗が登録されていません。<br>
+            下の「検索」または「登録済み店舗」から追加してください。
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Add Shop via Google Places Search or Dropdown -->
+      <div style="background: #F8F5EE; border-radius: var(--radius-md); padding: 14px; margin-top: 16px; border: 1px solid var(--border-subtle);">
+        <label class="form-label" style="font-size: 0.88rem; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <span>Googleマップから店舗を検索して追加</span>
+        </label>
+        
+        <!-- Google Places Autocomplete Input -->
+        <div style="position: relative; margin-bottom: 10px;">
+          <input 
+            type="text" 
+            id="google-place-autocomplete" 
+            class="form-input" 
+            placeholder="店名や住所を入力（例: 谷川米穀店、香川うどん...）" 
+            autocomplete="off"
+            style="background: #FFFFFF;"
+          >
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <select id="select-new-shop" class="form-input" style="flex: 1; font-size: 0.85rem;">
+            <option value="">または登録済み店舗から選択...</option>
+            {% for shop in shops %}
+              <option value="{{ shop.id }}">{{ shop.name }} ({{ shop.address }})</option>
+            {% endfor %}
+          </select>
+          <button type="button" class="btn-primary-action" style="width: auto; padding: 10px 16px; font-size: 0.85rem; background: var(--accent-navy);" onclick="addSelectedShop()">
+            追加
+          </button>
+        </div>
+      </div>
+
+      <!-- Submit / Save Button -->
+      <div style="margin-top: 24px;">
+        <button type="submit" class="btn-primary-action">
+          {% if trip %}旅程の変更を保存する{% else %}この内容でうどん旅を作成する{% endif %}
+        </button>
+      </div>
+    </div>
+  </form>
+
+  {% if trip and trip.owner == request.user or trip and request.user.is_superuser %}
+    <!-- Danger Zone: Delete Trip (Owner only) -->
+    <div style="margin-top: 28px; padding: 16px; border: 1px solid #FECACA; background: #FEF2F2; border-radius: var(--radius-md); text-align: center;">
+      <div style="font-weight: 800; font-size: 0.92rem; color: #991B1B; margin-bottom: 4px;">旅程の削除</div>
+      <p style="font-size: 0.78rem; color: #7F1D1D; margin-bottom: 12px; line-height: 1.45;">
+        この旅程を削除します。<br>
+        ※ 店舗のレビュー・投稿写真、登録ユーザーデータは削除されずにそのまま残ります。
+      </p>
+      <form method="POST" action="{% url 'udon:trip_delete' trip_id=trip.id %}" onsubmit="return confirm('本当に旅程「{{ trip.title|escapejs }}」を削除しますか？\n（店舗レビューや写真は保持されます）');">
+        {% csrf_token %}
+        <button type="submit" class="btn-primary-action" style="background: #DC2626; color: #FFFFFF; font-size: 0.85rem; padding: 8px 18px; width: auto; display: inline-flex; margin: 0 auto; box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+          <span>この旅程を削除する</span>
+        </button>
+      </form>
+    </div>
+  {% endif %}
+
+  <!-- Member Invite Modal -->
+  <div id="member-invite-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; padding: 20px;">
+    <div style="background: #FFFFFF; border-radius: var(--radius-lg); width: 100%; max-width: 380px; padding: 20px; box-shadow: var(--shadow-lg); animation: popIn 0.2s ease;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3 style="font-size: 1.05rem; font-weight: 800; color: var(--text-main); margin: 0;">巡礼仲間を招待</h3>
+        <button type="button" onclick="closeMemberInviteModal()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted);">✕</button>
+      </div>
+
+      {% if registered_profiles %}
+        <label class="form-label" style="font-size: 0.8rem; margin-bottom: 6px;">登録済みうどん人から選択</label>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
+          {% for prof in registered_profiles %}
+            <button type="button" onclick="selectExistingMember('{{ prof.nickname }}', '{{ prof.avatar_color }}', '{{ prof.initial }}', '{% if prof.avatar_image %}{{ prof.avatar_image.url }}{% endif %}')" style="display: flex; align-items: center; gap: 6px; padding: 5px 10px 5px 6px; background: #F8F5EE; border: 1px solid var(--border-subtle); border-radius: var(--radius-full); cursor: pointer; font-size: 0.8rem; font-weight: 700; color: var(--text-main);">
+              {% if prof.avatar_image %}
+                <img src="{{ prof.avatar_image.url }}" alt="{{ prof.nickname }}" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <span style="width: 22px; height: 22px; border-radius: 9999px; background-color: {{ prof.avatar_color }}; color: #FFF; display: none; align-items: center; justify-content: center; font-size: 0.72rem;">{{ prof.initial }}</span>
+              {% else %}
+                <span style="width: 22px; height: 22px; border-radius: 9999px; background-color: {{ prof.avatar_color }}; color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 0.72rem;">{{ prof.initial }}</span>
+              {% endif %}
+              <span>{{ prof.nickname }}</span>
+            </button>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <label class="form-label" style="font-size: 0.8rem; margin-bottom: 6px;">または名前を入力して招待</label>
+      <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+        <input type="text" id="custom-member-name" class="form-input" placeholder="例: 出汁マスター" style="font-size: 0.88rem;">
+        <button type="button" class="btn-primary-action" onclick="addCustomMember()" style="width: auto; padding: 8px 16px; font-size: 0.85rem;">追加</button>
+      </div>
+      
+      <div style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4;">
+        ※招待されたメンバーは、ログイン後にこの旅を閲覧・共有できるようになります。
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'udon/js/dnd_stops.js' %}"></script>
+{% if GOOGLE_MAPS_API_KEY %}
+  <script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAPS_API_KEY }}&libraries=places&language=ja&region=JP&callback=initGooglePlacesSearch" async defer></script>
+{% endif %}
+
+<script>
+function initGooglePlacesSearch() {
+  const input = document.getElementById('google-place-autocomplete');
+  if (!input || typeof google === 'undefined' || !google.maps || !google.maps.places) return;
+
+  // Center & bounds around Kagawa Prefecture
+  const kagawaBounds = new google.maps.LatLngBounds(
+    new google.maps.LatLng(34.0, 133.5),
+    new google.maps.LatLng(34.6, 134.5)
+  );
+
+  const autocomplete = new google.maps.places.Autocomplete(input, {
+    bounds: kagawaBounds,
+    componentRestrictions: { country: 'jp' },
+    fields: ['place_id', 'name', 'formatted_address', 'geometry', 'types', 'rating', 'user_ratings_total'],
+    types: ['food'],
+  });
+
+  autocomplete.addListener('place_changed', () => {
+    const place = autocomplete.getPlace();
+    if (!place.geometry || !place.geometry.location) {
+      alert('店舗の位置情報が見つかりませんでした。');
+      return;
+    }
+
+    const name = place.name;
+    const address = place.formatted_address || '香川県';
+    const lat = place.geometry.location.lat();
+    const lng = place.geometry.location.lng();
+    const placeId = place.place_id || '';
+    const rating = place.rating || '';
+    const userRatingsTotal = place.user_ratings_total || 0;
+
+    const tripId = document.getElementById('dnd-stop-list').getAttribute('data-trip-id');
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    if (tripId) {
+      // Add directly to existing trip
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('address', address);
+      formData.append('lat', lat);
+      formData.append('lng', lng);
+      formData.append('place_id', placeId);
+      if (rating) formData.append('rating', rating);
+      if (userRatingsTotal) formData.append('user_ratings_total', userRatingsTotal);
+      formData.append('travel_time', '車で18分');
+
+      fetch(`/api/trips/${tripId}/add-stop/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrftoken },
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'ok') {
+          window.location.reload();
+        } else {
+          alert('追加に失敗しました: ' + data.message);
+        }
+      });
+    } else {
+      // Create shop and append to form
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('address', address);
+      formData.append('lat', lat);
+      formData.append('lng', lng);
+      formData.append('place_id', placeId);
+      if (rating) formData.append('rating', rating);
+      if (userRatingsTotal) formData.append('user_ratings_total', userRatingsTotal);
+
+      fetch('/api/shops/create-from-place/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrftoken },
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'ok') {
+          const list = document.getElementById('dnd-stop-list');
+          const placeholder = document.getElementById('empty-stops-placeholder');
+          if (placeholder) placeholder.remove();
+
+          const item = document.createElement('div');
+          item.className = 'dnd-stop-item';
+          item.setAttribute('draggable', 'true');
+          item.innerHTML = `
+            <input type="hidden" name="shop_ids" value="${data.shop.id}">
+            <input type="hidden" name="travel_times" value="車で18分">
+            <div class="dnd-item-left">
+              <span class="drag-handle-icon">⠿</span>
+              <span class="dnd-shop-title">${data.shop.name}</span>
+            </div>
+            <div class="dnd-item-right">
+              <button type="button" class="dnd-action-btn btn-delete-stop" title="削除">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+              </button>
+              <span class="dnd-action-btn" title="ドラッグして並び替え">✥</span>
+            </div>
+          `;
+          list.appendChild(item);
+          input.value = '';
+        }
+      });
+    }
+  });
+}
+
+function openMemberInviteModal() {
+  const modal = document.getElementById('member-invite-modal');
+  modal.style.display = 'flex';
+  const input = document.getElementById('custom-member-name');
+  if (input) input.focus();
+}
+
+function closeMemberInviteModal() {
+  const modal = document.getElementById('member-invite-modal');
+  modal.style.display = 'none';
+}
+
+function isMemberAlreadyAdded(name) {
+  if (!name) return false;
+  const target = name.trim().toLowerCase();
+  const items = document.querySelectorAll('#members-container .member-avatar-item');
+  for (const item of items) {
+    const mName = item.getAttribute('data-member-name');
+    if (mName && mName.trim().toLowerCase() === target) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function selectExistingMember(name, color, initial, avatarImg) {
+  if (isMemberAlreadyAdded(name)) {
+    alert(`「${name}」さんは既に参加メンバーに含まれています。`);
+    return;
+  }
+  appendMemberAvatar(name, color, initial, avatarImg);
+  closeMemberInviteModal();
+}
+
+function addCustomMember() {
+  const input = document.getElementById('custom-member-name');
+  const name = input ? input.value.trim() : '';
+  if (!name) return;
+
+  if (isMemberAlreadyAdded(name)) {
+    alert(`「${name}」さんは既に参加メンバーに含まれています。`);
+    return;
+  }
+
+  const colors = ['#E67E22', '#2980B9', '#27AE60', '#8E44AD', '#D35400', '#1E2B37'];
+  const randColor = colors[Math.floor(Math.random() * colors.length)];
+  const initial = name.charAt(0) || 'メ';
+
+  appendMemberAvatar(name, randColor, initial, null);
+  input.value = '';
+  closeMemberInviteModal();
+}
+
+function appendMemberAvatar(name, color, initial, avatarImg) {
+  const tripId = document.getElementById('dnd-stop-list').getAttribute('data-trip-id');
+  const container = document.getElementById('members-container');
+  const addBtn = container.querySelector('.add-member-btn');
+
+  if (tripId) {
+    // Existing trip: POST via AJAX
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('avatar_color', color);
+    formData.append('avatar_icon', '🧑');
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    fetch(`/api/trips/${tripId}/add-member/`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrftoken },
+      body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === 'ok') {
+        const m = data.member;
+        const avatar = document.createElement('div');
+        avatar.className = 'member-avatar-item';
+        avatar.setAttribute('data-member-name', m.name);
+        avatar.setAttribute('data-member-id', m.id);
+        avatar.style.backgroundColor = m.avatar_color;
+        avatar.title = `${m.name} (メンバー)`;
+
+        let innerContent = '';
+        if (m.avatar_image) {
+          innerContent = `
+            <img src="${m.avatar_image}" alt="${m.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+            <span style="display: none; align-items: center; justify-content: center; width: 100%; height: 100%;">${m.initial}</span>
+          `;
+        } else {
+          innerContent = `<span>${m.initial}</span>`;
+        }
+        innerContent += `<button type="button" class="member-remove-badge" onclick="removeMember(this, '${m.id}', '${m.name}')" title="「${m.name}」さんを外す">✕</button>`;
+
+        avatar.innerHTML = innerContent;
+        container.insertBefore(avatar, addBtn);
+      } else {
+        alert(data.message || 'メンバーの追加に失敗しました');
+      }
+    })
+    .catch(err => {
+      alert('エラーが発生しました: ' + err);
+    });
+  } else {
+    // New trip: add input to form
+    const avatar = document.createElement('div');
+    avatar.className = 'member-avatar-item';
+    avatar.setAttribute('data-member-name', name);
+    avatar.style.backgroundColor = color;
+    avatar.title = `${name} (メンバー)`;
+
+    let innerContent = '';
+    if (avatarImg) {
+      innerContent = `
+        <img src="${avatarImg}" alt="${name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+        <span style="display: none; align-items: center; justify-content: center; width: 100%; height: 100%;">${initial}</span>
+      `;
+    } else {
+      innerContent = `<span>${initial}</span>`;
+    }
+    innerContent += `
+      <input type="hidden" name="members" value="${name}">
+      <button type="button" class="member-remove-badge" onclick="removeMember(this, null, '${name}')" title="「${name}」さんを外す">✕</button>
+    `;
+
+    avatar.innerHTML = innerContent;
+    container.insertBefore(avatar, addBtn);
+  }
+}
+
+function removeMember(btnEl, memberId, memberName) {
+  const avatarItem = btnEl.closest('.member-avatar-item');
+  const tripId = document.getElementById('dnd-stop-list').getAttribute('data-trip-id');
+
+  if (tripId && memberId) {
+    if (!confirm(`「${memberName}」さんを旅の参加メンバーから外しますか？`)) {
+      return;
+    }
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    fetch(`/api/trips/${tripId}/members/${memberId}/delete/`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrftoken }
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === 'ok') {
+        avatarItem.style.transform = 'scale(0)';
+        avatarItem.style.opacity = '0';
+        setTimeout(() => avatarItem.remove(), 200);
+      } else {
+        alert(data.message || 'メンバーの解除に失敗しました');
+      }
+    })
+    .catch(err => {
+      alert('エラーが発生しました: ' + err);
+    });
+  } else {
+    // New trip (local remove)
+    avatarItem.style.transform = 'scale(0)';
+    avatarItem.style.opacity = '0';
+    setTimeout(() => avatarItem.remove(), 200);
+  }
+}
+
+function addSelectedShop() {
+  const select = document.getElementById('select-new-shop');
+  const shopId = select.value;
+  const shopName = select.options[select.selectedIndex]?.text;
+  if (!shopId) return;
+
+  const tripId = document.getElementById('dnd-stop-list').getAttribute('data-trip-id');
+
+  if (tripId) {
+    // Save to server
+    const formData = new FormData();
+    formData.append('shop_id', shopId);
+    formData.append('travel_time', '車で18分');
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    fetch(`/api/trips/${tripId}/add-stop/`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrftoken },
+      body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === 'ok') {
+        window.location.reload();
+      }
+    });
+  } else {
+    // Append to local DND list before form submit
+    const list = document.getElementById('dnd-stop-list');
+    const placeholder = document.getElementById('empty-stops-placeholder');
+    if (placeholder) placeholder.remove();
+
+    const item = document.createElement('div');
+    item.className = 'dnd-stop-item';
+    item.setAttribute('draggable', 'true');
+    item.innerHTML = `
+      <input type="hidden" name="shop_ids" value="${shopId}">
+      <input type="hidden" name="travel_times" value="車で18分">
+      <div class="dnd-item-left">
+        <span class="drag-handle-icon">⠿</span>
+        <span class="dnd-shop-title">${shopName.split(' (')[0]}</span>
+      </div>
+      <div class="dnd-item-right">
+        <button type="button" class="dnd-action-btn btn-delete-stop" title="削除">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
+        <span class="dnd-action-btn" title="ドラッグして並び替え">✥</span>
+      </div>
+    `;
+    list.appendChild(item);
+    select.value = '';
+  }
+}
+</script>
+{% endblock %}

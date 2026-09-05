@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <rect width="400" height="400" fill="#ECE9E2"/>
+  <g transform="translate(200, 165)" text-anchor="middle">
+    <!-- Camera Body -->
+    <path d="M-55 5 C-60 5 -64 9 -64 14 L-64 64 C-64 69 -60 73 -55 73 L55 73 C60 73 64 69 64 64 L64 14 C64 9 60 5 55 5 L32 5 L24 -10 L-24 -10 L-32 5 Z" fill="#D6D1C7" stroke="#A8A29E" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+    <!-- Lens -->
+    <circle cx="0" cy="38" r="22" fill="#ECE9E2" stroke="#A8A29E" stroke-width="4"/>
+    <circle cx="0" cy="38" r="10" fill="#D6D1C7"/>
+    <circle cx="38" cy="20" r="4" fill="#A8A29E"/>
+    <!-- Label -->
+    <text x="0" y="112" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Hiragino Sans', 'Noto Sans JP', sans-serif" font-size="19" font-weight="700" letter-spacing="2" fill="#78716C">NO IMAGE</text>
+    <text x="0" y="136" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Hiragino Sans', 'Noto Sans JP', sans-serif" font-size="13" font-weight="500" letter-spacing="1" fill="#9C958D">写真未登録</text>
+  </g>
+</svg>

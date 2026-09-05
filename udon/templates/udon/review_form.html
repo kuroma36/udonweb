@@ -1,0 +1,308 @@
+{% extends 'udon/base.html' %}
+{% load static %}
+
+{% block title %}{% if existing_review %}レビュー編集{% else %}レビュー投稿{% endif %} - {{ shop.name }}{% endblock %}
+
+{% block content %}
+<header class="app-header">
+  {% if trip %}
+    <a href="{% url 'udon:shop_detail_in_trip' trip_id=trip.id shop_id=shop.id %}" class="header-btn" title="戻る">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m15 18-6-6 6-6"/>
+      </svg>
+    </a>
+  {% else %}
+    <a href="{% url 'udon:shop_detail' shop_id=shop.id %}" class="header-btn" title="戻る">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m15 18-6-6 6-6"/>
+      </svg>
+    </a>
+  {% endif %}
+  <h1 class="header-title">{% if existing_review %}うどん評価・レビュー編集{% else %}うどん評価・レビュー{% endif %}</h1>
+  <div style="width: 38px;"></div>
+</header>
+
+<main class="app-content" style="padding: 16px 16px 80px;">
+  <form method="POST" enctype="multipart/form-data" class="trip-form-card">
+    {% csrf_token %}
+
+    <div style="text-align: center; margin-bottom: 8px;">
+      <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--text-main);">{{ shop.name }}</h2>
+      <p style="font-size: 0.8rem; color: var(--text-muted);">{{ shop.address }}</p>
+    </div>
+
+    {% if existing_review %}
+      <div style="background: rgba(217, 155, 38, 0.12); border: 1px solid rgba(217, 155, 38, 0.3); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D99B26" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+        <span style="font-size: 0.82rem; font-weight: 700; color: #8A5B00;">前回のレビュー内容を表示中（編集して更新できます）</span>
+      </div>
+    {% endif %}
+
+    <!-- Reviewer Info -->
+    <div class="form-group">
+      <label class="form-label">投稿者のお名前</label>
+      <input type="text" name="author_name" class="form-input" value="{% if existing_review %}{{ existing_review.author_name }}{% elif request.user.profile.nickname %}{{ request.user.profile.nickname }}{% elif request.user.is_authenticated %}{{ request.user.username }}{% else %}会員さん{% endif %}" required>
+    </div>
+
+    <!-- Overall Star Score -->
+    <div class="form-group">
+      <label class="form-label">総合評価 (★ 1.0 〜 5.0)</label>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <input type="range" name="score_total" min="1.0" max="5.0" step="0.1" value="{% if existing_review %}{{ existing_review.score_total }}{% else %}4.8{% endif %}" class="form-input" style="flex: 1; padding: 4px;" oninput="document.getElementById('overall-score-display').textContent = this.value">
+        <span id="overall-score-display" style="font-size: 1.4rem; font-weight: 800; color: var(--accent-amber); min-width: 45px;">{% if existing_review %}{{ existing_review.score_total }}{% else %}4.8{% endif %}</span>
+      </div>
+    </div>
+
+    <!-- 5-Axis Score Sliders -->
+    <div class="form-group">
+      <label class="form-label" style="margin-bottom: 4px;">香川うどん 5軸評価 (各1〜10点)</label>
+      
+      <!-- Axis 1: Noodle -->
+      <div style="background: #F8F5EE; padding: 12px; border-radius: 12px; margin-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 0.9rem; margin-bottom: 4px;">
+          <span>[麺] コシ・喉ごし・太さ</span>
+          <span id="val_noodle" style="color: var(--accent-amber);">{% if existing_review %}{{ existing_review.score_noodle }}{% else %}9{% endif %} / 10</span>
+        </div>
+        <input type="range" name="score_noodle" min="1" max="10" value="{% if existing_review %}{{ existing_review.score_noodle }}{% else %}9{% endif %}" style="width: 100%;" oninput="document.getElementById('val_noodle').textContent = this.value + ' / 10'">
+      </div>
+
+      <!-- Axis 2: Soup / Broth -->
+      <div style="background: #F8F5EE; padding: 12px; border-radius: 12px; margin-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 0.9rem; margin-bottom: 4px;">
+          <span>[出汁] いりこの風味・旨味</span>
+          <span id="val_soup" style="color: var(--accent-amber);">{% if existing_review %}{{ existing_review.score_soup }}{% else %}10{% endif %} / 10</span>
+        </div>
+        <input type="range" name="score_soup" min="1" max="10" value="{% if existing_review %}{{ existing_review.score_soup }}{% else %}10{% endif %}" style="width: 100%;" oninput="document.getElementById('val_soup').textContent = this.value + ' / 10'">
+      </div>
+
+      <!-- Axis 3: Atmosphere -->
+      <div style="background: #F8F5EE; padding: 12px; border-radius: 12px; margin-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 0.9rem; margin-bottom: 4px;">
+          <span>[店の雰囲気] セルフ情緒・活気</span>
+          <span id="val_atmosphere" style="color: var(--accent-amber);">{% if existing_review %}{{ existing_review.score_atmosphere }}{% else %}9{% endif %} / 10</span>
+        </div>
+        <input type="range" name="score_atmosphere" min="1" max="10" value="{% if existing_review %}{{ existing_review.score_atmosphere }}{% else %}9{% endif %}" style="width: 100%;" oninput="document.getElementById('val_atmosphere').textContent = this.value + ' / 10'">
+      </div>
+
+      <!-- Axis 4: Tempura -->
+      <div style="background: #F8F5EE; padding: 12px; border-radius: 12px; margin-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 0.9rem; margin-bottom: 4px;">
+          <span>[天ぷら] 揚げたて・サクサク感</span>
+          <span id="val_tempura" style="color: var(--accent-amber);">{% if existing_review %}{{ existing_review.score_tempura }}{% else %}8{% endif %} / 10</span>
+        </div>
+        <input type="range" name="score_tempura" min="1" max="10" value="{% if existing_review %}{{ existing_review.score_tempura }}{% else %}8{% endif %}" style="width: 100%;" oninput="document.getElementById('val_tempura').textContent = this.value + ' / 10'">
+      </div>
+
+      <!-- Axis 5: Cost / Value -->
+      <div style="background: #F8F5EE; padding: 12px; border-radius: 12px; margin-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 0.9rem; margin-bottom: 4px;">
+          <span>[コスパ] 価格に対する満足度</span>
+          <span id="val_cost" style="color: var(--accent-amber);">{% if existing_review %}{{ existing_review.score_cost }}{% else %}10{% endif %} / 10</span>
+        </div>
+        <input type="range" name="score_cost" min="1" max="10" value="{% if existing_review %}{{ existing_review.score_cost }}{% else %}10{% endif %}" style="width: 100%;" oninput="document.getElementById('val_cost').textContent = this.value + ' / 10'">
+      </div>
+    </div>
+
+    <!-- Stamp Selection -->
+    <div class="form-group">
+      <label class="form-label">認定スタンプ</label>
+      <select name="stamp_type" class="form-input">
+        <option value="香川人選" {% if existing_review and existing_review.stamp_type == '香川人選' %}selected{% endif %}>香川人選 (おすすめ銘店)</option>
+        <option value="名店認定" {% if existing_review and existing_review.stamp_type == '名店認定' %}selected{% endif %}>名店認定 (伝統の味)</option>
+        <option value="巡礼完了" {% if existing_review and existing_review.stamp_type == '巡礼完了' %}selected{% endif %}>巡礼完了 (達成スタンプ)</option>
+        <option value="絶品百選" {% if existing_review and existing_review.stamp_type == '絶品百選' %}selected{% endif %}>絶品百選 (極上の一杯)</option>
+      </select>
+    </div>
+
+    <!-- Review Comment -->
+    <div class="form-group">
+      <label class="form-label">レビューコメント</label>
+      <textarea name="comment" class="form-input" rows="4" placeholder="麺のコシや出汁の風味、注文したメニューの感想を記入してください...">{% if existing_review %}{{ existing_review.comment }}{% endif %}</textarea>
+    </div>
+
+    <!-- Photo Management Section -->
+    <div class="form-group" style="margin-top: 18px; border-top: 1px solid var(--border-subtle); padding-top: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <label class="form-label" style="font-weight: 800; font-size: 0.92rem; margin-bottom: 0; display: flex; align-items: center; gap: 6px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D99B26" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+          <span>投稿写真の管理（削除・追加）</span>
+        </label>
+        <span style="font-size: 0.76rem; color: var(--text-muted);">合計 <span id="user-photo-count" style="font-weight: 800; color: var(--accent-amber);">{{ user_photos|length }}</span>枚</span>
+      </div>
+
+      <!-- Existing Photos List -->
+      {% if user_photos %}
+        <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">
+          あなたがこの店舗に投稿した写真一覧です。右上のゴミ箱ボタンで個別に削除できます。
+        </div>
+        <div id="user-photos-grid" class="user-photos-manage-grid">
+          {% for p in user_photos %}
+            <div class="user-photo-card" id="user-photo-item-{{ p.type }}-{{ p.id }}">
+              <div class="user-photo-thumb-wrapper">
+                <img src="{{ p.url }}" alt="{{ p.caption }}" class="user-photo-thumb" onclick="window.open('{{ p.url }}', '_blank')">
+                <span class="user-photo-type-badge {% if p.type == 'review' %}badge-review{% else %}badge-shop{% endif %}">
+                  {{ p.type_label }}
+                </span>
+                <button type="button" class="btn-delete-photo-icon" title="この写真を削除" onclick="deleteUserPhoto('{{ p.type }}', {{ p.id }}, this)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                </button>
+              </div>
+              <div class="user-photo-caption-text" title="{{ p.caption }}">{{ p.caption }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div id="user-photos-empty-box" style="background: #F8F6F0; border-radius: 8px; padding: 12px; text-align: center; color: var(--text-muted); font-size: 0.8rem; margin-bottom: 10px;">
+          まだあなたが投稿した写真はありません。下のエリアから写真を追加できます。
+        </div>
+      {% endif %}
+
+      <!-- Add New Photos Input -->
+      <div style="margin-top: 14px; background: #FFFDF9; border: 1.5px dashed #D99B26; border-radius: 10px; padding: 14px; text-align: center;">
+        <div style="font-weight: 700; font-size: 0.86rem; color: var(--text-main); margin-bottom: 4px;">
+          ＋ 新しい写真を追加（複数選択可）
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 10px;">
+          端末から写真を何枚でも選択できます
+        </div>
+        <input type="file" id="new-photos-input" name="photos" accept="image/*" multiple class="form-input" style="background: #FFF;" onchange="previewNewSelectedPhotos(this)">
+
+        <!-- New Photos Live Preview -->
+        <div id="new-photos-preview-box" style="display: none; margin-top: 10px;">
+          <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-main); text-align: left; margin-bottom: 6px;">
+            追加選択中の写真 (<span id="new-photos-count" style="color: var(--accent-amber);">0</span>枚):
+          </div>
+          <div id="new-photos-grid" class="photo-preview-grid"></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 16px;">
+      <button type="submit" class="btn-primary-action">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span>{% if existing_review %}評価を更新して保存する{% else %}評価を投稿して共有する{% endif %}</span>
+      </button>
+    </div>
+  </form>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function getCsrfToken() {
+  const cookieMatch = document.cookie.match(/csrftoken=([^;]+)/);
+  if (cookieMatch) return decodeURIComponent(cookieMatch[1]);
+  return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+}
+
+function deleteUserPhoto(photoType, photoId, btnEl) {
+  if (!confirm('この写真を削除してもよろしいですか？')) return;
+
+  btnEl.disabled = true;
+  btnEl.style.opacity = '0.5';
+
+  const url = (photoType === 'review')
+    ? `/api/reviews/${photoId}/delete-photo/`
+    : `/api/photos/${photoId}/delete/`;
+
+  fetch(url, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': getCsrfToken(),
+    }
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.status === 'ok') {
+      const card = document.getElementById(`user-photo-item-${photoType}-${photoId}`);
+      if (card) {
+        card.style.transition = 'all 0.3s ease';
+        card.style.opacity = '0';
+        card.style.transform = 'scale(0.8)';
+        setTimeout(() => {
+          card.remove();
+          const grid = document.getElementById('user-photos-grid');
+          const remaining = grid ? grid.querySelectorAll('.user-photo-card').length : 0;
+          const countEl = document.getElementById('user-photo-count');
+          if (countEl) countEl.textContent = remaining;
+          if (remaining === 0 && grid) {
+            grid.innerHTML = '<div style="grid-column: 1/-1; background: #F8F6F0; border-radius: 8px; padding: 12px; text-align: center; color: var(--text-muted); font-size: 0.8rem;">すべての写真を削除しました。</div>';
+          }
+        }, 300);
+      }
+      showToast('写真を削除しました！✨');
+    } else {
+      alert('削除に失敗しました: ' + (data.message || 'エラー'));
+      btnEl.disabled = false;
+      btnEl.style.opacity = '1';
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    alert('通信エラーが発生しました');
+    btnEl.disabled = false;
+    btnEl.style.opacity = '1';
+  });
+}
+
+function previewNewSelectedPhotos(input) {
+  const box = document.getElementById('new-photos-preview-box');
+  const grid = document.getElementById('new-photos-grid');
+  const countSpan = document.getElementById('new-photos-count');
+  if (!input.files || input.files.length === 0) {
+    box.style.display = 'none';
+    grid.innerHTML = '';
+    return;
+  }
+
+  const count = input.files.length;
+  countSpan.textContent = count;
+  grid.innerHTML = '';
+
+  Array.from(input.files).forEach((file, idx) => {
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const item = document.createElement('div');
+      item.className = 'photo-preview-item';
+      item.innerHTML = `
+        <img src="${e.target.result}" alt="選択画像 ${idx + 1}">
+        <span class="photo-preview-badge">${idx + 1}</span>
+      `;
+      grid.appendChild(item);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  box.style.display = 'block';
+}
+
+function showToast(msg) {
+  let toast = document.getElementById('app-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'app-toast';
+    toast.style.position = 'fixed';
+    toast.style.top = '70px';
+    toast.style.left = '50%';
+    toast.style.transform = 'translateX(-50%)';
+    toast.style.zIndex = '9999';
+    toast.style.backgroundColor = '#1E2B37';
+    toast.style.color = '#FFF';
+    toast.style.padding = '8px 16px';
+    toast.style.borderRadius = '9999px';
+    toast.style.fontSize = '12px';
+    toast.style.fontWeight = '700';
+    toast.style.boxShadow = '0 6px 18px rgba(0,0,0,0.25)';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.display = 'block';
+  setTimeout(() => {
+    toast.style.display = 'none';
+  }, 2500);
+}
+</script>
+{% endblock %}

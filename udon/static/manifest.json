@@ -1,0 +1,17 @@
+{
+  "name": "うどん人 (うどんちゅ)",
+  "short_name": "うどん人",
+  "description": "香川うどん巡礼記録・ルート＆5軸評価アプリ",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FBF8F2",
+  "theme_color": "#1E2B37",
+  "icons": [
+    {
+      "src": "/static/udon/images/udonchu_mascot.jpg",
+      "sizes": "192x192 512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

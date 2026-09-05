@@ -1,0 +1,367 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>{% block title %}うどん人 (うどんちゅ) - 香川うどん巡礼記録・評価{% endblock %}</title>
+  
+  <!-- Google Fonts: Inter & Noto Sans JP -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Noto+Sans+JP:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Web App Manifest for PWA & Orientation Lock -->
+  <link rel="manifest" href="{% static 'manifest.json' %}">
+  <meta name="theme-color" content="#1E2B37">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/jpeg" href="{% static 'udon/images/udonchu_mascot.jpg' %}">
+  
+  <!-- Leaflet CSS for Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="{% static 'udon/css/main.css' %}?v=20260905_3">
+  
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+  <!-- Landscape Orientation Guard Overlay -->
+  <div id="landscape-guard">
+    <svg class="landscape-guard-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+      <line x1="12" y1="18" x2="12.01" y2="18"></line>
+    </svg>
+    <div class="landscape-guard-title">画面を縦向きにしてください</div>
+    <div class="landscape-guard-desc">うどん人 (うどんちゅ) は縦画面専用です。<br>端末を縦向きに戻してご利用ください。</div>
+  </div>
+
+  <div class="app-container {% if request.resolver_match.url_name == 'trip_map' %}map-page-active{% endif %}">
+    {% if messages %}
+      <div class="toast-container">
+        {% for message in messages %}
+          <div class="toast-msg">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% block content %}
+    {% endblock %}
+
+    <!-- Bottom Navigation Bar (Visible only when logged in) -->
+    {% if request.user.is_authenticated %}
+      <nav class="bottom-nav-bar" id="bottom-nav-bar">
+        <a href="{% url 'udon:home' %}" class="nav-tab-item {% if request.resolver_match.url_name == 'trip_map' or request.resolver_match.url_name == 'home' %}active{% endif %}">
+          <span class="nav-icon">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon>
+              <line x1="9" y1="3" x2="9" y2="18"></line>
+              <line x1="15" y1="6" x2="15" y2="21"></line>
+            </svg>
+          </span>
+          <span class="nav-label">マップ</span>
+        </a>
+        <a href="{% url 'udon:trip_create' %}" class="nav-tab-item {% if request.resolver_match.url_name == 'trip_create' or request.resolver_match.url_name == 'trip_edit' %}active{% endif %}">
+          <span class="nav-icon">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </span>
+          <span class="nav-label">旅行管理</span>
+        </a>
+        <a href="{% url 'udon:shop_list' %}" class="nav-tab-item {% if request.resolver_match.url_name == 'shop_list' or request.resolver_match.url_name == 'shop_detail' or request.resolver_match.url_name == 'shop_detail_in_trip' %}active{% endif %}">
+          <span class="nav-icon">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+              <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+          </span>
+          <span class="nav-label">店舗一覧</span>
+        </a>
+        <a href="{% url 'udon:trip_list' %}" class="nav-tab-item {% if request.resolver_match.url_name == 'trip_list' %}active{% endif %}">
+          <span class="nav-icon">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+          </span>
+          <span class="nav-label">旅の記録</span>
+        </a>
+      </nav>
+    {% endif %}
+    <!-- Global Notification Drawer Backdrop & Drawer (Visible only when logged in) -->
+    {% if request.user.is_authenticated %}
+      <div class="notification-drawer-backdrop" id="notification-drawer-backdrop" onclick="closeNotificationDrawer()"></div>
+      <div class="notification-drawer" id="notification-drawer" aria-hidden="true">
+        <div class="notification-drawer-header">
+          <div class="notification-drawer-title-row">
+            <div class="notification-drawer-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+              <span>通知</span>
+            </div>
+            <div class="notification-drawer-actions">
+              <button type="button" class="btn-mark-all-read" onclick="markAllNotificationsRead()" title="すべて既読にする">すべて既読</button>
+              <button type="button" class="btn-notification-close" onclick="closeNotificationDrawer()" title="閉じる">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="notification-drawer-body" id="notification-items-container">
+          <div class="notification-loading">読み込み中...</div>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Universal Toast Messages, Bottom Nav & Notification System -->
+  <script>
+  // Global Notification Drawer Functions
+  window.toggleNotificationDrawer = function() {
+    const drawer = document.getElementById('notification-drawer');
+    if (!drawer) return;
+    if (drawer.classList.contains('is-open')) {
+      closeNotificationDrawer();
+    } else {
+      openNotificationDrawer();
+    }
+  };
+
+  window.openNotificationDrawer = function() {
+    const drawer = document.getElementById('notification-drawer');
+    const backdrop = document.getElementById('notification-drawer-backdrop');
+    if (!drawer) return;
+    drawer.classList.add('is-open');
+    drawer.setAttribute('aria-hidden', 'false');
+    if (backdrop) backdrop.classList.add('is-visible');
+    document.body.style.overflow = 'hidden';
+    loadNotifications();
+  };
+
+  window.closeNotificationDrawer = function() {
+    const drawer = document.getElementById('notification-drawer');
+    const backdrop = document.getElementById('notification-drawer-backdrop');
+    if (!drawer) return;
+    drawer.classList.remove('is-open');
+    drawer.setAttribute('aria-hidden', 'true');
+    if (backdrop) backdrop.classList.remove('is-visible');
+    document.body.style.overflow = '';
+  };
+
+  window.loadNotifications = function() {
+    const container = document.getElementById('notification-items-container');
+    if (!container) return;
+
+    fetch('/api/notifications/')
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'ok') {
+          updateNotificationBadges(data.unread_count);
+          renderNotificationItems(data.notifications);
+        }
+      })
+      .catch(err => {
+        console.error('Error loading notifications:', err);
+        container.innerHTML = '<div class="notification-empty">通知の取得に失敗しました</div>';
+      });
+  };
+
+  window.renderNotificationItems = function(notifications) {
+    const container = document.getElementById('notification-items-container');
+    if (!container) return;
+
+    if (!notifications || notifications.length === 0) {
+      container.innerHTML = `
+        <div class="notification-empty">
+          <div class="notification-empty-icon">🔔</div>
+          <div class="notification-empty-text">現在、新しい通知はありません</div>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = notifications.map(n => {
+      const avatarHtml = n.sender_avatar_image
+        ? `<img src="${n.sender_avatar_image}" alt="${escapeHtml(n.sender_name)}" class="notif-avatar-img">`
+        : `<div class="notif-avatar-fallback" style="background-color: ${n.sender_avatar_color || '#E67E22'};">${escapeHtml(n.sender_initial || 'う')}</div>`;
+
+      const iconTypeHtml = n.type === 'like'
+        ? `<span class="notif-type-badge notif-type-like">❤️</span>`
+        : `<span class="notif-type-badge notif-type-comment">💬</span>`;
+
+      return `
+        <div class="notification-item ${n.is_read ? 'is-read' : 'is-unread'}" onclick="handleNotificationClick(${n.id}, '${n.target_url}')">
+          <div class="notif-avatar-wrapper">
+            ${avatarHtml}
+            ${iconTypeHtml}
+          </div>
+          <div class="notif-content">
+            <div class="notif-message">${escapeHtml(n.message)}</div>
+            <div class="notif-meta">
+              <span class="notif-time">${escapeHtml(n.time_ago)}</span>
+              ${!n.is_read ? '<span class="notif-unread-dot"></span>' : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  };
+
+  window.handleNotificationClick = function(id, targetUrl) {
+    fetch(`/api/notifications/${id}/read/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCsrfTokenFromCookie(),
+      }
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === 'ok') {
+        updateNotificationBadges(data.unread_count);
+      }
+      if (targetUrl && targetUrl !== '#') {
+        window.location.href = targetUrl;
+      }
+    })
+    .catch(() => {
+      if (targetUrl && targetUrl !== '#') {
+        window.location.href = targetUrl;
+      }
+    });
+  };
+
+  window.markAllNotificationsRead = function() {
+    fetch('/api/notifications/read-all/', {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCsrfTokenFromCookie(),
+      }
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === 'ok') {
+        updateNotificationBadges(0);
+        document.querySelectorAll('.notification-item').forEach(el => {
+          el.classList.remove('is-unread');
+          el.classList.add('is-read');
+          const dot = el.querySelector('.notif-unread-dot');
+          if (dot) dot.remove();
+        });
+      }
+    });
+  };
+
+  window.updateNotificationBadges = function(count) {
+    const badges = document.querySelectorAll('.notification-badge');
+    badges.forEach(b => {
+      if (count > 0) {
+        b.textContent = count > 99 ? '99+' : count;
+        b.style.display = 'inline-flex';
+        b.classList.add('badge-bounce');
+        setTimeout(() => b.classList.remove('badge-bounce'), 400);
+      } else {
+        b.style.display = 'none';
+        b.textContent = '0';
+      }
+    });
+  };
+
+  function getCsrfTokenFromCookie() {
+    const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : '';
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  {% if request.user.is_authenticated %}
+  // Periodic poll for unread notifications every 60 seconds
+  setInterval(() => {
+    if (document.visibilityState === 'visible') {
+      fetch('/api/notifications/')
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === 'ok') {
+            updateNotificationBadges(data.unread_count);
+          }
+        })
+        .catch(() => {});
+    }
+  }, 60000);
+  {% endif %}
+
+  document.addEventListener('DOMContentLoaded', function() {
+    // 1. Auto-dismiss Toast Messages after 3.2s
+    const toasts = document.querySelectorAll('.toast-msg');
+    toasts.forEach(toast => {
+      toast.addEventListener('click', function() {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-10px)';
+        setTimeout(() => toast.remove(), 350);
+      });
+
+      setTimeout(() => {
+        if (toast && toast.parentNode) {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateY(-10px)';
+          setTimeout(() => {
+            if (toast && toast.parentNode) toast.remove();
+          }, 350);
+        }
+      }, 3200);
+    });
+
+    // 2. Bottom Nav Dynamic Scroll Detection
+    const navBar = document.getElementById('bottom-nav-bar');
+    if (navBar) {
+      window.addEventListener('scroll', function() {
+        const scrollY = window.scrollY || document.documentElement.scrollTop;
+        const windowHeight = window.innerHeight;
+        const docHeight = document.documentElement.scrollHeight;
+        if (scrollY > 50 || (scrollY + windowHeight >= docHeight - 30)) {
+          navBar.classList.add('show-labels');
+        } else {
+          navBar.classList.remove('show-labels');
+        }
+      }, { passive: true });
+
+      const shopList = document.getElementById('shop-order-scroll');
+      if (shopList) {
+        shopList.addEventListener('scroll', function() {
+          const isScrolled = shopList.scrollTop > 15;
+          const isBottom = (shopList.scrollTop + shopList.clientHeight >= shopList.scrollHeight - 25);
+          if (isScrolled || isBottom) {
+            navBar.classList.add('show-labels');
+          } else {
+            navBar.classList.remove('show-labels');
+          }
+        }, { passive: true });
+      }
+    }
+  });
+  </script>
+  
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
