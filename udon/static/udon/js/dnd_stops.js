@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (tripId && stopsPayload.length > 0) {
-      fetch(`/api/trips/${tripId}/reorder-stops/`, {
+      fetch(`/udon/api/trips/${tripId}/reorder-stops/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (confirm('この店舗を旅程から削除しますか？')) {
         if (tripId) {
-          fetch(`/api/trips/${tripId}/stops/${stopId}/delete/`, {
+          fetch(`/udon/api/trips/${tripId}/stops/${stopId}/delete/`, {
             method: 'POST',
             headers: {
               'X-CSRFToken': csrftoken,

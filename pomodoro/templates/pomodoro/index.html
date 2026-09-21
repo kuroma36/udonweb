@@ -1,0 +1,2766 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pomodoro Focus | ポモドーロタイマー & YouTube BGM</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='tb' x1='50' y1='30' x2='50' y2='94' gradientUnits='userSpaceOnUse'%3E%3Cstop stop-color='%23ff4365'/%3E%3Cstop offset='1' stop-color='%23d90429'/%3E%3C/linearGradient%3E%3ClinearGradient id='tl' x1='50' y1='10' x2='50' y2='30' gradientUnits='userSpaceOnUse'%3E%3Cstop stop-color='%2334d399'/%3E%3Cstop offset='1' stop-color='%23059669'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M50 22 C49 14, 53 10, 56 8' stroke='%2310b981' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M48 24 C38 16, 26 20, 32 30 C38 34, 46 28, 48 24 Z' fill='url(%23tl)'/%3E%3Cpath d='M52 24 C62 16, 74 20, 68 30 C62 34, 54 28, 52 24 Z' fill='url(%23tl)'/%3E%3Cpath d='M50 32 C28 32, 12 44, 12 64 C12 84, 28 94, 50 94 C72 94, 88 84, 88 64 C88 44, 72 32, 50 32 Z' fill='url(%23tb)'/%3E%3Cpath d='M42 34 C46 38, 54 38, 58 34' stroke='%239f1239' stroke-width='3' stroke-linecap='round' opacity='0.6'/%3E%3Cpath d='M22 56 C22 46, 30 38, 42 36' stroke='white' stroke-width='4.5' stroke-linecap='round' opacity='0.4'/%3E%3C/svg%3E">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#f5f3ff',
+              100: '#ede9fe',
+              500: '#8b5cf6',
+              600: '#7c3aed',
+              700: '#6d28d9',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.4);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.4);
+    }
+
+    /* Glassmorphism Classes */
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.72);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    }
+
+    .glass-input {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .glass-input:focus {
+      border-color: rgba(168, 85, 247, 0.7);
+      box-shadow: 0 0 15px rgba(168, 85, 247, 0.3);
+    }
+
+    /* Glow Animations */
+    .glow-pulse {
+      animation: pulse-glow 2.5s infinite ease-in-out;
+    }
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(168, 85, 247, 0.4); }
+      50% { box-shadow: 0 0 40px rgba(168, 85, 247, 0.8), 0 0 60px rgba(168, 85, 247, 0.2); }
+    }
+
+    /* SVG Timer Transition */
+    .timer-ring-progress {
+      transition: stroke-dashoffset 0.85s linear, stroke 0.5s ease;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+    }
+
+    /* Unified Seamless YouTube Player (No reload, zero interruption) */
+    #unified-player-wrapper {
+      position: fixed;
+      overflow: hidden;
+      will-change: top, left, width, height;
+    }
+    #unified-player-wrapper.morphing {
+      transition: top 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                  left 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                  width 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                  height 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                  border-radius 0.35s ease,
+                  box-shadow 0.35s ease;
+    }
+
+    /* 1. Background Fullscreen Ambient Mode */
+    #unified-player-wrapper.mode-bg {
+      z-index: 0;
+      border-radius: 0;
+      pointer-events: none;
+      box-shadow: none;
+    }
+    #unified-player-wrapper.mode-bg:not(.morphing) {
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+    }
+    #unified-player-wrapper.mode-bg iframe {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 100vw;
+      height: 56.25vw; /* 16:9 ratio */
+      min-height: 100vh;
+      min-width: 177.77vh; /* 16:9 ratio */
+      transform: translate(-50%, -50%);
+      opacity: 0.85;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    /* 2. Floating / Anchored PIP Mode */
+    #unified-player-wrapper.mode-pip {
+      z-index: 35;
+      border-radius: 1rem;
+      pointer-events: auto;
+      box-shadow: 0 12px 36px -4px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.15);
+      background: #000;
+    }
+    #unified-player-wrapper.mode-pip iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      transform: none;
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Zen Mode with PIP */
+    body.zen-active #unified-player-wrapper.mode-pip {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      transition: opacity 0.4s ease;
+    }
+
+    /* Zen Mode Hide */
+    body.zen-active .zen-hide {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      transform: translateY(-20px);
+      transition: all 0.4s ease;
+    }
+    body.zen-active .zen-expand {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-purple-500 selection:text-white relative overflow-x-hidden">
+
+  <!-- ==================== UNIFIED SEAMLESS YOUTUBE PLAYER ==================== -->
+  <div id="unified-player-wrapper" class="mode-bg">
+    <div id="youtube-player-host"></div>
+  </div>
+
+  <!-- Background Overlay Dimmer -->
+  <div id="bg-dimmer" class="fixed inset-0 bg-slate-950/75 z-0 transition-opacity duration-500 pointer-events-none"></div>
+
+  <!-- Animated Gradient Fallback (Visible if video is paused/empty) -->
+  <div id="ambient-fallback" class="fixed inset-0 z-0 opacity-40 pointer-events-none" style="background: radial-gradient(circle at 20% 30%, rgba(99, 102, 241, 0.25) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(236, 72, 153, 0.2) 0%, transparent 50%);"></div>
+
+  <!-- ==================== HEADER NAVIGATION ==================== -->
+  <header class="zen-hide relative z-20 w-full px-4 lg:px-8 py-4 border-b border-white/10 glass-panel backdrop-blur-md transition-all duration-300">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      
+      <!-- Brand Logo -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-500/20 via-purple-600/25 to-pink-500/20 border border-white/10 flex items-center justify-center shadow-lg shadow-rose-500/20 p-2">
+          <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full drop-shadow-md">
+            <defs>
+              <linearGradient id="header-tomato-body" x1="50" y1="30" x2="50" y2="94" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#ff4365"/>
+                <stop offset="1" stop-color="#d90429"/>
+              </linearGradient>
+              <linearGradient id="header-tomato-leaf" x1="50" y1="10" x2="50" y2="30" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#34d399"/>
+                <stop offset="1" stop-color="#059669"/>
+              </linearGradient>
+            </defs>
+            <path d="M50 22 C49 14, 53 10, 56 8" stroke="#10b981" stroke-width="5" stroke-linecap="round"/>
+            <path d="M48 24 C38 16, 26 20, 32 30 C38 34, 46 28, 48 24 Z" fill="url(#header-tomato-leaf)"/>
+            <path d="M52 24 C62 16, 74 20, 68 30 C62 34, 54 28, 52 24 Z" fill="url(#header-tomato-leaf)"/>
+            <path d="M50 32 C28 32, 12 44, 12 64 C12 84, 28 94, 50 94 C72 94, 88 84, 88 64 C88 44, 72 32, 50 32 Z" fill="url(#header-tomato-body)"/>
+            <path d="M42 34 C46 38, 54 38, 58 34" stroke="#9f1239" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+            <path d="M22 56 C22 46, 30 38, 42 36" stroke="white" stroke-width="4.5" stroke-linecap="round" opacity="0.4"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-lg font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-purple-300">
+            Pomodoro Focus
+          </h1>
+          <p class="text-[11px] text-purple-300/80 font-medium -mt-1 flex items-center gap-1">
+            <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+            Ambient &amp; YouTube BGM
+          </p>
+        </div>
+      </div>
+
+      <!-- Center App Navigation Links (Tablet & Desktop) -->
+      <nav class="hidden sm:flex items-center space-x-1.5 bg-slate-900/60 p-1.5 rounded-2xl border border-white/10 backdrop-blur-xl">
+        <span class="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-purple-600 text-white shadow-md shadow-purple-600/40 flex items-center gap-1.5">
+          <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0"><path d="M50 22 C49 14, 53 10, 56 8" stroke="#10b981" stroke-width="6" stroke-linecap="round"/><path d="M48 24 C38 16, 26 20, 32 30 C38 34, 46 28, 48 24 Z" fill="#34d399"/><path d="M52 24 C62 16, 74 20, 68 30 C62 34, 54 28, 52 24 Z" fill="#34d399"/><path d="M50 32 C28 32, 12 44, 12 64 C12 84, 28 94, 50 94 C72 94, 88 84, 88 64 C88 44, 72 32, 50 32 Z" fill="#ef4444"/><path d="M22 56 C22 46, 30 38, 42 36" stroke="white" stroke-width="5" stroke-linecap="round" opacity="0.4"/></svg>
+          <span>ポモドーロ</span>
+        </span>
+        <a href="/udon/" class="px-3.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/10 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-bowl-rice"></i> <span>讃岐うどん巡礼</span>
+        </a>
+        <a href="/travel/" class="px-3.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/10 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-route"></i> <span>旅ナビ</span>
+        </a>
+      </nav>
+
+      <!-- Right Action Tools -->
+      <div class="flex items-center space-x-2">
+        <!-- Sound Mute Toggle -->
+        <button id="btn-sound-toggle" title="通知サウンド切替" class="w-9 h-9 rounded-xl glass-input hover:bg-white/15 text-slate-300 hover:text-white flex items-center justify-center text-sm transition">
+          <i class="fa-solid fa-volume-high"></i>
+        </button>
+
+        <!-- Zen Mode Toggle -->
+        <button id="btn-zen-toggle" title="集中モード (全画面・余白非表示)" class="w-9 h-9 rounded-xl glass-input hover:bg-white/15 text-slate-300 hover:text-purple-300 flex items-center justify-center text-sm transition">
+          <i class="fa-solid fa-expand"></i>
+        </button>
+
+        <!-- Settings Modal Trigger -->
+        <button id="btn-open-settings" title="タイマー・表示設定" class="w-9 h-9 rounded-xl glass-input hover:bg-white/15 text-slate-300 hover:text-white flex items-center justify-center text-sm transition">
+          <i class="fa-solid fa-gear"></i>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ==================== MAIN CONTENT ==================== -->
+  <main class="relative z-10 flex-1 max-w-7xl w-full mx-auto p-4 lg:p-8 pb-24 sm:pb-8 flex flex-col justify-center">
+    
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+      
+      <!-- ==================== LEFT: POMODORO TIMER CORE (7 Cols) ==================== -->
+      <section class="lg:col-span-7 flex flex-col items-center justify-center">
+        
+        <div class="w-full max-w-lg glass-panel rounded-3xl p-6 lg:p-8 flex flex-col items-center text-center relative overflow-hidden transition-all duration-300">
+          
+          <!-- Mode Tabs -->
+          <div class="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-900/80 border border-white/10 mb-8 w-full justify-between sm:justify-center">
+            <button id="tab-work" class="flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 bg-purple-600 text-white shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2">
+              <i class="fa-solid fa-bullseye text-xs"></i> <span>集中 (25m)</span>
+            </button>
+            <button id="tab-short" class="flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs sm:text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-white/5 transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-mug-hot text-xs"></i> <span>小休憩 (5m)</span>
+            </button>
+            <button id="tab-long" class="flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs sm:text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-white/5 transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-couch text-xs"></i> <span>長休憩 (15m)</span>
+            </button>
+          </div>
+
+          <!-- Circular SVG Timer -->
+          <div class="relative w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center my-2">
+            <svg class="w-full h-full" viewBox="0 0 280 280">
+              <defs>
+                <linearGradient id="timer-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#c084fc" />
+                  <stop offset="50%" stop-color="#818cf8" />
+                  <stop offset="100%" stop-color="#38bdf8" />
+                </linearGradient>
+                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="6" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+              </defs>
+              <!-- Background Ring -->
+              <circle cx="140" cy="140" r="120" stroke="rgba(255, 255, 255, 0.08)" stroke-width="12" fill="transparent" />
+              <!-- Animated Progress Ring -->
+              <circle id="timer-progress" cx="140" cy="140" r="120" stroke="url(#timer-grad)" stroke-width="12" fill="transparent" stroke-linecap="round" stroke-dasharray="753.98" stroke-dashoffset="0" class="timer-ring-progress" filter="url(#glow)" />
+            </svg>
+
+            <!-- Center Countdown Text -->
+            <div class="absolute inset-0 flex flex-col items-center justify-center select-none pointer-events-none">
+              <span id="timer-mode-badge" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wider uppercase mb-1 bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                FOCUS
+              </span>
+              <span id="timer-display" class="font-mono text-5xl sm:text-6xl font-extrabold tracking-tight text-white drop-shadow-[0_4px_24px_rgba(168,85,247,0.4)]">
+                25:00
+              </span>
+              <span id="active-task-label" class="text-xs text-slate-400 mt-2 max-w-[200px] truncate">
+                作業に集中しましょう
+              </span>
+            </div>
+          </div>
+
+          <!-- Controls Button Group -->
+          <div class="flex items-center justify-center gap-4 mt-8 w-full">
+            
+            <!-- Reset Button -->
+            <button id="btn-reset" title="タイマーをリセット" class="w-12 h-12 rounded-2xl glass-input hover:bg-white/15 text-slate-300 hover:text-white flex items-center justify-center text-lg transition active:scale-95 shadow-md">
+              <i class="fa-solid fa-rotate-left"></i>
+            </button>
+
+            <!-- Main Start/Pause Button -->
+            <button id="btn-start-pause" class="flex-1 max-w-[180px] h-14 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-lg shadow-xl shadow-purple-600/40 hover:shadow-purple-600/60 flex items-center justify-center gap-3 transition-all duration-200 active:scale-95">
+              <i id="start-icon" class="fa-solid fa-play"></i>
+              <span id="start-text">開始</span>
+            </button>
+
+            <!-- Skip Button -->
+            <button id="btn-skip" title="次のセッションへスキップ" class="w-12 h-12 rounded-2xl glass-input hover:bg-white/15 text-slate-300 hover:text-white flex items-center justify-center text-lg transition active:scale-95 shadow-md">
+              <i class="fa-solid fa-forward-step"></i>
+            </button>
+
+          </div>
+
+          <!-- Quick Time Adjusters -->
+          <div class="flex items-center gap-2 mt-4 text-xs text-slate-400">
+            <button id="btn-minus-1m" class="px-2.5 py-1 rounded-lg glass-input hover:bg-white/10 hover:text-white transition">-1分</button>
+            <button id="btn-plus-1m" class="px-2.5 py-1 rounded-lg glass-input hover:bg-white/10 hover:text-white transition">+1分</button>
+            <button id="btn-plus-5m" class="px-2.5 py-1 rounded-lg glass-input hover:bg-white/10 hover:text-white transition">+5分</button>
+          </div>
+
+          <!-- Session & Stats Indicator Footer -->
+          <div class="mt-8 pt-6 border-t border-white/10 w-full flex items-center justify-between text-xs text-slate-400">
+            <div class="flex items-center gap-2">
+              <span class="font-medium text-slate-300">ラウンド:</span>
+              <div id="round-dots" class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-white/20"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-white/20"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-white/20"></span>
+              </div>
+              <span id="round-text" class="text-purple-300 font-semibold ml-1">1 / 4</span>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0 drop-shadow-sm inline-block"><path d="M50 22 C49 14, 53 10, 56 8" stroke="#10b981" stroke-width="6" stroke-linecap="round"/><path d="M48 24 C38 16, 26 20, 32 30 C38 34, 46 28, 48 24 Z" fill="#34d399"/><path d="M52 24 C62 16, 74 20, 68 30 C62 34, 54 28, 52 24 Z" fill="#34d399"/><path d="M50 32 C28 32, 12 44, 12 64 C12 84, 28 94, 50 94 C72 94, 88 84, 88 64 C88 44, 72 32, 50 32 Z" fill="#ef4444"/><path d="M22 56 C22 46, 30 38, 42 36" stroke="white" stroke-width="5" stroke-linecap="round" opacity="0.4"/></svg>
+              <span id="completed-pomos" class="font-bold text-white text-sm">0</span>
+              <span>個完了</span>
+              <span id="focus-mins" class="text-slate-400 ml-1">(0分)</span>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- ==================== RIGHT: YOUTUBE & TODO WIDGETS (5 Cols) ==================== -->
+      <aside class="zen-hide lg:col-span-5 flex flex-col space-y-6">
+
+        <!-- ==================== WIDGET 1: YOUTUBE BGM & AMBIENT ==================== -->
+        <div class="glass-panel rounded-3xl p-5 lg:p-6 flex flex-col relative">
+          
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2.5 min-w-0 flex-1">
+              <div class="w-8 h-8 rounded-lg bg-red-600/20 border border-red-500/30 flex items-center justify-center text-red-400 shrink-0">
+                <i class="fa-brands fa-youtube text-lg"></i>
+              </div>
+              <div class="min-w-0 flex-1">
+                <h2 class="font-bold text-sm text-white flex items-center gap-2">
+                  YouTube BGM &amp; 背景
+                </h2>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                  <span id="yt-playback-dot" class="w-2 h-2 rounded-full bg-slate-500 shrink-0"></span>
+                  <p id="yt-status-text" class="text-[11px] text-slate-400 truncate max-w-[150px] sm:max-w-[200px]">
+                    未再生（URL入力またはプリセット選択）
+                  </p>
+                  <button id="btn-toggle-current-fav" title="現在の動画をお気に入り登録/解除" class="text-slate-400 hover:text-amber-400 text-xs transition px-1">
+                    <i id="icon-current-fav" class="fa-regular fa-star"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Display Mode Selector (Background vs PIP) -->
+            <div class="flex items-center bg-slate-900/80 p-1 rounded-xl border border-white/10 text-xs shrink-0">
+              <button id="mode-bg" title="全画面背景として再生" class="px-2.5 py-1 rounded-lg bg-purple-600 text-white font-medium transition">
+                背景
+              </button>
+              <button id="mode-pip" title="小窓プレイヤーとして表示" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition">
+                小窓
+              </button>
+            </div>
+          </div>
+
+          <!-- YouTube PIP Placement Slot (Anchor for seamless PIP mode) -->
+          <div id="pip-slot" class="hidden w-full aspect-video rounded-2xl overflow-hidden mb-4 border border-white/10 bg-black/40 relative flex items-center justify-center">
+            <div class="text-[11px] text-slate-500 flex items-center gap-2 pointer-events-none">
+              <i class="fa-brands fa-youtube text-red-500"></i>
+              <span>小窓プレイヤー</span>
+            </div>
+          </div>
+
+          <!-- URL Input Bar -->
+          <div class="flex items-center gap-2 mb-3">
+            <div class="relative flex-1">
+              <i class="fa-solid fa-link absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+              <input id="yt-url-input" type="text" placeholder="YouTube URL (通常 / LIVE / アーカイブ / Shorts) またはID..." class="w-full pl-8 pr-3 py-2 rounded-xl text-xs glass-input text-white placeholder:text-slate-500 outline-none transition" />
+            </div>
+            <button id="btn-load-yt" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-md shadow-purple-600/30 transition active:scale-95 shrink-0 flex items-center gap-1.5">
+              <i class="fa-solid fa-play text-[10px]"></i> 再生
+            </button>
+          </div>
+
+          <!-- Player Quick Controls Toolbar (Play/Pause, Stop, Volume, Auto-Sync) -->
+          <div class="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-2xl bg-slate-900/70 border border-white/5 mb-3 text-xs">
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button id="btn-yt-play-pause" title="動画を再生 / 一時停止" class="px-3 py-1.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/30 text-purple-200 hover:text-white transition flex items-center gap-1.5 text-xs font-semibold active:scale-95">
+                <i id="icon-yt-play-pause" class="fa-solid fa-play text-[10px]"></i>
+                <span id="text-yt-play-pause">再生</span>
+              </button>
+              <button id="btn-yt-stop" title="動画を完全停止（音と映像を止めて先頭へ）" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 text-slate-300 hover:text-red-400 transition flex items-center gap-1.5 text-xs font-semibold active:scale-95">
+                <i class="fa-solid fa-stop text-[10px]"></i>
+                <span>停止</span>
+              </button>
+            </div>
+
+            <!-- Volume & Auto-Sync -->
+            <div class="flex items-center gap-2.5 shrink-0 ml-auto">
+              <div class="flex items-center gap-1.5 w-24 sm:w-28">
+                <i class="fa-solid fa-volume-low text-slate-400 text-[11px]"></i>
+                <input id="yt-volume" type="range" min="0" max="100" value="50" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-500" />
+                <span id="yt-volume-val" class="font-mono text-[10px] text-slate-400 w-6">50%</span>
+              </div>
+
+              <label class="flex items-center gap-1 cursor-pointer select-none text-[11px] text-slate-300 shrink-0" title="タイマーの開始・停止にYouTube再生を自動連動させる">
+                <input id="chk-auto-sync" type="checkbox" checked class="rounded bg-slate-800 border-white/20 text-purple-600 focus:ring-0 w-3.5 h-3.5" />
+                <span class="hidden sm:inline">タイマー連動</span>
+                <span class="sm:hidden">連動</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- YouTube Seek Bar & Time Display -->
+          <div class="px-1 mb-3">
+            <div class="flex items-center gap-2">
+              <input id="yt-seek-bar" type="range" min="0" max="100" value="0" step="0.1" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500 hover:accent-purple-400 transition" />
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono px-0.5 mt-1">
+              <span id="yt-current-time" class="text-purple-300 font-semibold">00:00</span>
+              <div class="flex items-center gap-2">
+                <button id="yt-live-indicator" type="button" class="hidden items-center gap-1.5 text-[9px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 cursor-pointer hover:bg-red-500/30 transition select-none font-bold active:scale-95 shadow-sm shadow-red-500/20" title="YouTube LIVE配信中（クリックで生配信の最前線へ追いつく）">
+                  <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span>
+                  <span>LIVE</span>
+                </button>
+                <span id="yt-bg-badge" title="画面オフ・通知バーから再生継続可能" class="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1 cursor-pointer hover:bg-purple-500/30 transition">
+                  <i class="fa-solid fa-mobile-screen text-[8px]"></i> 画面オフ対応
+                </span>
+                <span id="yt-duration">00:00</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- YouTube Media Tabs (History / Favorites / Presets) -->
+          <div class="mt-4 pt-3 border-t border-white/10">
+            <!-- Tab Headers -->
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center bg-slate-900/80 p-1 rounded-xl border border-white/10 text-xs">
+                <button id="tab-yt-history" class="px-2.5 py-1 rounded-lg bg-purple-600 text-white font-medium transition flex items-center gap-1.5">
+                  <i class="fa-solid fa-clock-rotate-left text-[11px]"></i>
+                  <span>履歴</span>
+                  <span id="badge-history-count" class="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]">0</span>
+                </button>
+                <button id="tab-yt-favs" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition flex items-center gap-1.5">
+                  <i class="fa-solid fa-star text-amber-400 text-[11px]"></i>
+                  <span>お気に入り</span>
+                  <span id="badge-favs-count" class="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]">0</span>
+                </button>
+                <button id="tab-yt-presets" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition flex items-center gap-1.5">
+                  <i class="fa-solid fa-music text-[11px]"></i>
+                  <span>おすすめ</span>
+                </button>
+              </div>
+
+              <!-- Clear History Button -->
+              <button id="btn-clear-history" title="視聴履歴を全件削除" class="text-[11px] text-slate-400 hover:text-red-400 flex items-center gap-1 transition px-2 py-1 rounded-lg hover:bg-white/5">
+                <i class="fa-solid fa-trash-can text-[10px]"></i> 全削除
+              </button>
+            </div>
+
+            <!-- Tab Content 1: History List -->
+            <div id="panel-yt-history" class="space-y-2 max-h-56 overflow-y-auto pr-1">
+              <!-- Dynamically populated -->
+            </div>
+
+            <!-- Tab Content 2: Favorites List -->
+            <div id="panel-yt-favs" class="hidden space-y-2 max-h-56 overflow-y-auto pr-1">
+              <!-- Dynamically populated -->
+            </div>
+
+            <!-- Tab Content 3: Recommended Presets -->
+            <div id="panel-yt-presets" class="hidden">
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <button data-id="jfKfPfyJRdk" data-title="Lofi Girl - beats to relax/study to" class="preset-btn px-2.5 py-2 rounded-xl glass-input hover:bg-white/15 text-left text-xs text-slate-300 hover:text-white transition flex items-center justify-between gap-1.5 truncate">
+                  <div class="flex items-center gap-2 truncate">
+                    <i class="fa-solid fa-headphones text-purple-400 text-xs shrink-0"></i>
+                    <span class="truncate">Lofi Girl</span>
+                  </div>
+                  <span class="px-1.5 py-0.2 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 text-[9px] font-bold shrink-0 flex items-center gap-1"><span class="w-1 h-1 rounded-full bg-red-400 animate-pulse"></span>LIVE</span>
+                </button>
+                <button data-id="mPZkdNFkNps" data-title="雨音と雷 (Rain & Thunder)" class="preset-btn px-2.5 py-2 rounded-xl glass-input hover:bg-white/15 text-left text-xs text-slate-300 hover:text-white transition flex items-center gap-2.5 truncate">
+                  <i class="fa-solid fa-cloud-rain text-sky-400 text-xs shrink-0"></i> <span class="truncate">雨音と雷</span>
+                </button>
+                <button data-id="-5KAN9_CzSA" data-title="Cozy Coffee Shop & Jazz" class="preset-btn px-2.5 py-2 rounded-xl glass-input hover:bg-white/15 text-left text-xs text-slate-300 hover:text-white transition flex items-center gap-2.5 truncate">
+                  <i class="fa-solid fa-mug-saucer text-amber-400 text-xs shrink-0"></i> <span class="truncate">カフェJazz</span>
+                </button>
+                <button data-id="gnZ11s_K0bY" data-title="Studio Ghibli Piano" class="preset-btn px-2.5 py-2 rounded-xl glass-input hover:bg-white/15 text-left text-xs text-slate-300 hover:text-white transition flex items-center gap-2.5 truncate">
+                  <i class="fa-solid fa-music text-pink-400 text-xs shrink-0"></i> <span class="truncate">ジブリピアノ</span>
+                </button>
+                <button data-id="4xDzrJKXOOY" data-title="Synthwave Chill Beats" class="preset-btn px-2.5 py-2 rounded-xl glass-input hover:bg-white/15 text-left text-xs text-slate-300 hover:text-white transition flex items-center gap-2.5 truncate">
+                  <i class="fa-solid fa-bolt text-indigo-400 text-xs shrink-0"></i> <span class="truncate">Synthwave</span>
+                </button>
+                <button data-id="xNN7iTA57jM" data-title="森林と小鳥のさえずり" class="preset-btn px-2.5 py-2 rounded-xl glass-input hover:bg-white/15 text-left text-xs text-slate-300 hover:text-white transition flex items-center gap-2.5 truncate">
+                  <i class="fa-solid fa-tree text-emerald-400 text-xs shrink-0"></i> <span class="truncate">森林と小鳥</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+
+        <!-- ==================== WIDGET 2: QUICK TASKS & TODO ==================== -->
+        <div class="glass-panel rounded-3xl p-5 lg:p-6 flex flex-col">
+          
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                <i class="fa-solid fa-list-check text-sm"></i>
+              </div>
+              <h2 class="font-bold text-sm text-white">本日のタスク</h2>
+            </div>
+            <span id="task-count" class="text-[11px] font-semibold text-purple-300 px-2 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/30">
+              0 タスク
+            </span>
+          </div>
+
+          <!-- Add Task Input Form -->
+          <form id="task-form" class="flex items-center gap-2 mb-3">
+            <input id="task-input" type="text" placeholder="+ タスクを入力してEnterで追加..." class="flex-1 px-3.5 py-2 rounded-xl text-xs glass-input text-white placeholder:text-slate-500 outline-none transition" />
+            <button type="submit" class="w-8 h-8 rounded-xl bg-purple-600 hover:bg-purple-500 text-white flex items-center justify-center text-xs transition active:scale-95 shadow-md shrink-0">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+          </form>
+
+          <!-- Task Items List -->
+          <ul id="task-list" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+            <!-- Dynamically populated from JS / localStorage -->
+          </ul>
+
+        </div>
+
+      </aside>
+
+    </div>
+
+    <!-- ==================== ACTIVITY HEATMAP (GitHub-style Contribution Graph) ==================== -->
+    <section class="zen-hide mt-8 w-full">
+      <div class="glass-panel rounded-3xl p-5 sm:p-7 flex flex-col relative overflow-hidden">
+        
+        <!-- Header & Stats Summary -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-white/10 mb-5">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-lg shadow-emerald-500/20 shrink-0">
+              <i class="fa-solid fa-fire text-lg"></i>
+            </div>
+            <div>
+              <h2 class="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                集中アクティビティ
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-normal">GitHubスタイル</span>
+              </h2>
+              <p class="text-[11px] text-slate-400">日々の集中セッションと収穫トマトの記録</p>
+            </div>
+          </div>
+
+          <!-- Summary Metric Badges -->
+          <div class="flex flex-wrap items-center gap-2 sm:gap-2.5 text-xs">
+            <div class="px-3 py-1.5 rounded-xl bg-slate-900/70 border border-white/10 flex items-center gap-1.5 shadow-sm">
+              <i class="fa-solid fa-bolt text-amber-400 text-xs"></i>
+              <span class="text-slate-400">ストリーク:</span>
+              <span id="streak-count" class="font-bold text-emerald-400 font-mono">0日連続</span>
+            </div>
+            <div class="px-3 py-1.5 rounded-xl bg-slate-900/70 border border-white/10 flex items-center gap-1.5 shadow-sm">
+              <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 shrink-0"><path d="M50 22 C49 14, 53 10, 56 8" stroke="#10b981" stroke-width="6" stroke-linecap="round"/><path d="M48 24 C38 16, 26 20, 32 30 C38 34, 46 28, 48 24 Z" fill="#34d399"/><path d="M52 24 C62 16, 74 20, 68 30 C62 34, 54 28, 52 24 Z" fill="#34d399"/><path d="M50 32 C28 32, 12 44, 12 64 C12 84, 28 94, 50 94 C72 94, 88 84, 88 64 C88 44, 72 32, 50 32 Z" fill="#ef4444"/><path d="M22 56 C22 46, 30 38, 42 36" stroke="white" stroke-width="5" stroke-linecap="round" opacity="0.4"/></svg>
+              <span class="text-slate-400">累計収穫:</span>
+              <span id="total-harvest-pomos" class="font-bold text-rose-300 font-mono">0個</span>
+            </div>
+            <div class="px-3 py-1.5 rounded-xl bg-slate-900/70 border border-white/10 flex items-center gap-1.5 shadow-sm">
+              <i class="fa-solid fa-clock text-purple-400 text-xs"></i>
+              <span class="text-slate-400">総集中時間:</span>
+              <span id="total-harvest-hours" class="font-bold text-purple-300 font-mono">0時間</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Heatmap Graph Scroll Container -->
+        <div class="overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin">
+          <div class="inline-block min-w-full">
+            <!-- Month Labels Row -->
+            <div id="heatmap-months" class="relative text-[10px] font-mono text-slate-400 mb-1.5 pl-6 h-4 flex">
+              <!-- Dynamically populated from JS -->
+            </div>
+            
+            <!-- Grid Body: Days Label + Week Columns -->
+            <div class="flex gap-2">
+              <!-- Weekday Labels Column -->
+              <div class="flex flex-col justify-between text-[9px] font-mono text-slate-500 pr-1 select-none h-[112px] py-0.5 shrink-0">
+                <span>日</span>
+                <span>月</span>
+                <span>火</span>
+                <span>水</span>
+                <span>木</span>
+                <span>金</span>
+                <span>土</span>
+              </div>
+
+              <!-- Cells Grid (Weeks) -->
+              <div id="heatmap-grid" class="flex gap-1.5">
+                <!-- Dynamically populated from JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer Info & Legend -->
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-4 pt-3 border-t border-white/5 text-xs text-slate-400">
+          <div id="heatmap-tooltip-info" class="flex items-center gap-2 text-slate-300 min-h-[22px]">
+            <i class="fa-solid fa-circle-info text-slate-500 text-xs"></i>
+            <span id="heatmap-selected-text">マスを選択・ホバーして日ごとの詳細を表示</span>
+          </div>
+
+          <!-- Color Intensity Legend -->
+          <div class="flex items-center gap-1.5 text-[10px] font-mono text-slate-400 select-none">
+            <span>少</span>
+            <span title="0個" class="w-3.5 h-3.5 rounded-sm bg-slate-900/90 border border-white/10 inline-block"></span>
+            <span title="1〜2個" class="w-3.5 h-3.5 rounded-sm bg-emerald-950/80 border border-emerald-700/50 inline-block"></span>
+            <span title="3〜4個" class="w-3.5 h-3.5 rounded-sm bg-emerald-700/80 border border-emerald-500/60 inline-block"></span>
+            <span title="5〜7個" class="w-3.5 h-3.5 rounded-sm bg-emerald-500 border border-emerald-400 inline-block"></span>
+            <span title="8個以上" class="w-3.5 h-3.5 rounded-sm bg-emerald-300 border border-emerald-100 shadow-sm shadow-emerald-400/50 inline-block"></span>
+            <span>多</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== EXIT ZEN MODE FLOATING BUTTON ==================== -->
+  <button id="btn-exit-zen" class="hidden fixed top-6 right-6 z-50 px-4 py-2 rounded-xl bg-slate-900/90 border border-white/20 text-xs font-semibold text-white shadow-2xl hover:bg-purple-600 transition flex items-center gap-2 backdrop-blur-xl">
+    <i class="fa-solid fa-compress"></i> 集中モード解除
+  </button>
+
+  <!-- ==================== SETTINGS MODAL ==================== -->
+  <div id="settings-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md hidden transition-all duration-200">
+    <div class="glass-panel w-full max-w-md rounded-3xl p-6 sm:p-7 shadow-2xl border border-white/15 relative">
+      
+      <div class="flex items-center justify-between pb-4 border-b border-white/10 mb-5">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-purple-400"></i> タイマー・環境設定
+        </h3>
+        <button id="btn-close-settings" class="w-8 h-8 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center text-sm transition">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        
+        <!-- Timer Durations -->
+        <div>
+          <label class="block font-semibold text-slate-300 mb-2">タイマー時間設定 (分):</label>
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <span class="text-[11px] text-slate-400 block mb-1">集中時間</span>
+              <input id="cfg-work-time" type="number" min="1" max="90" value="25" class="w-full px-3 py-2 rounded-xl glass-input text-white font-mono text-center" />
+            </div>
+            <div>
+              <span class="text-[11px] text-slate-400 block mb-1">小休憩</span>
+              <input id="cfg-short-time" type="number" min="1" max="30" value="5" class="w-full px-3 py-2 rounded-xl glass-input text-white font-mono text-center" />
+            </div>
+            <div>
+              <span class="text-[11px] text-slate-400 block mb-1">長休憩</span>
+              <input id="cfg-long-time" type="number" min="1" max="60" value="15" class="w-full px-3 py-2 rounded-xl glass-input text-white font-mono text-center" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Dimmer Opacity Slider -->
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <label class="font-semibold text-slate-300">背景映像の暗さ (オーバーレイ):</label>
+            <span id="cfg-dimmer-val" class="font-mono text-slate-400">75%</span>
+          </div>
+          <input id="cfg-dimmer" type="range" min="10" max="95" value="75" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-500" />
+        </div>
+
+        <!-- Notification Sound -->
+        <div class="pt-2 border-t border-white/10 flex items-center justify-between">
+          <div>
+            <span class="font-semibold text-slate-300 block">完了通知サウンド (Web Audio):</span>
+            <span class="text-[11px] text-purple-300">時報カウントダウン (1秒間隔 ぽ・ぽ・ぽ・ぽーん)</span>
+          </div>
+          <button id="btn-test-sound" class="px-3 py-1.5 rounded-xl glass-input hover:bg-white/15 text-purple-300 hover:text-white font-medium transition flex items-center gap-1.5">
+            <i class="fa-solid fa-play text-[10px]"></i> 試聴
+          </button>
+        </div>
+
+        <!-- Auto Start Next Option -->
+        <div class="pt-2 border-t border-white/10 flex items-center justify-between">
+          <span class="font-semibold text-slate-300">休憩後に自動で集中を開始:</span>
+          <input id="cfg-auto-start" type="checkbox" class="rounded bg-slate-800 border-white/20 text-purple-600 focus:ring-0 cursor-pointer" />
+        </div>
+
+        <!-- Mobile Background Playback Guide -->
+        <div class="pt-3 border-t border-white/10">
+          <div class="p-3 rounded-2xl bg-indigo-950/40 border border-indigo-500/20 text-xs">
+            <div class="flex items-center gap-2 text-indigo-300 font-semibold mb-1">
+              <i class="fa-solid fa-mobile-screen"></i>
+              <span>スマホでのバックグラウンド再生のコツ</span>
+            </div>
+            <p class="text-[11px] text-slate-300 leading-relaxed">
+              画面をオフにしたり別アプリへ移動した際に動画が一時停止した場合、<strong>ロック画面または通知バーの再生ボタン（<i class="fa-solid fa-play text-[9px] text-purple-400"></i>）</strong>を押すことで、画面を消したままBGMをバックグラウンド再生し続けることができます。
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="mt-6 pt-4 border-t border-white/10 flex justify-end gap-3">
+        <button id="btn-save-settings" class="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-lg shadow-purple-600/40 transition">
+          設定を保存
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ==================== MOBILE BOTTOM NAVIGATION BAR ==================== -->
+  <nav class="sm:hidden zen-hide fixed bottom-0 left-0 right-0 z-40 bg-slate-950/90 backdrop-blur-2xl border-t border-white/10 px-3 py-2 flex items-center justify-around shadow-2xl">
+    <a href="/pomodoro/" class="flex flex-col items-center gap-1 text-purple-300 font-semibold text-[10px] px-3 py-1 rounded-xl bg-purple-600/20 border border-purple-500/30">
+      <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0 drop-shadow-sm"><path d="M50 22 C49 14, 53 10, 56 8" stroke="#10b981" stroke-width="6" stroke-linecap="round"/><path d="M48 24 C38 16, 26 20, 32 30 C38 34, 46 28, 48 24 Z" fill="#34d399"/><path d="M52 24 C62 16, 74 20, 68 30 C62 34, 54 28, 52 24 Z" fill="#34d399"/><path d="M50 32 C28 32, 12 44, 12 64 C12 84, 28 94, 50 94 C72 94, 88 84, 88 64 C88 44, 72 32, 50 32 Z" fill="#ef4444"/><path d="M22 56 C22 46, 30 38, 42 36" stroke="white" stroke-width="5" stroke-linecap="round" opacity="0.4"/></svg>
+      <span>ポモドーロ</span>
+    </a>
+    <a href="/udon/" class="flex flex-col items-center gap-1 text-slate-400 hover:text-white transition text-[10px] px-3 py-1">
+      <i class="fa-solid fa-bowl-rice text-sm"></i>
+      <span>讃岐うどん</span>
+    </a>
+    <a href="/travel/" class="flex flex-col items-center gap-1 text-slate-400 hover:text-white transition text-[10px] px-3 py-1">
+      <i class="fa-solid fa-route text-sm"></i>
+      <span>旅ナビ</span>
+    </a>
+    <button id="btn-mobile-settings" class="flex flex-col items-center gap-1 text-slate-400 hover:text-white transition text-[10px] px-3 py-1">
+      <i class="fa-solid fa-gear text-sm"></i>
+      <span>設定</span>
+    </button>
+  </nav>
+
+  <!-- ==================== JAVASCRIPT APP LOGIC ==================== -->
+  <script>
+    // --- 1. STATE MANAGEMENT ---
+    const STATE = {
+      mode: 'work', // 'work', 'short', 'long'
+      status: 'stopped', // 'running', 'paused', 'stopped'
+      timeLeft: 25 * 60,
+      totalDuration: 25 * 60,
+      timerId: null,
+      round: 1,
+      totalRounds: 4,
+      completedPomos: 0,
+      totalFocusSeconds: 0,
+      
+      // Configuration
+      config: {
+        workTime: 25,
+        shortTime: 5,
+        longTime: 15,
+        dimmerOpacity: 75,
+        soundEnabled: true,
+        autoStart: false,
+        autoSyncYouTube: true,
+      },
+      
+      // YouTube
+      yt: {
+        player: null,
+        isReady: false,
+        videoId: 'jfKfPfyJRdk', // Default: Lofi Girl
+        volume: 50,
+        displayMode: 'bg', // 'bg' or 'pip'
+        currentTitle: 'Lofi Girl - beats to relax/study to',
+        isLive: false, // true when playing an ongoing live stream
+      },
+
+      // YouTube History & Favorites
+      ytHistory: [], // Array of { id, title, timestamp, isFavorite }
+
+      tasks: [],
+      activeTaskId: null,
+
+      // Activity Log (GitHub Contribution Graph)
+      activityLog: {} // { 'YYYY-MM-DD': { pomos: N, seconds: M } }
+    };
+
+    function getLocalDateString(d = new Date()) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    // Load State from LocalStorage
+    function loadStorage() {
+      try {
+        const savedConfig = localStorage.getItem('pomodoro_config');
+        if (savedConfig) STATE.config = { ...STATE.config, ...JSON.parse(savedConfig) };
+        
+        const savedStats = localStorage.getItem('pomodoro_stats_' + new Date().toDateString());
+        if (savedStats) {
+          const stats = JSON.parse(savedStats);
+          STATE.completedPomos = stats.completedPomos || 0;
+          STATE.totalFocusSeconds = stats.totalFocusSeconds || 0;
+        }
+
+        const savedTasks = localStorage.getItem('pomodoro_tasks');
+        if (savedTasks) STATE.tasks = JSON.parse(savedTasks);
+
+        const savedYt = localStorage.getItem('pomodoro_yt');
+        if (savedYt) {
+          const ytData = JSON.parse(savedYt);
+          if (ytData.videoId) STATE.yt.videoId = ytData.videoId;
+          if (ytData.volume !== undefined) STATE.yt.volume = ytData.volume;
+          if (ytData.currentTitle) STATE.yt.currentTitle = ytData.currentTitle;
+        }
+
+        const savedHistory = localStorage.getItem('pomodoro_yt_history');
+        if (savedHistory) {
+          STATE.ytHistory = JSON.parse(savedHistory);
+        } else {
+          // Initialize with default history item
+          STATE.ytHistory = [
+            {
+              id: 'jfKfPfyJRdk',
+              title: 'Lofi Girl - beats to relax/study to',
+              timestamp: Date.now(),
+              isFavorite: true
+            }
+          ];
+        }
+
+        // Load Activity Log & Migrate existing daily stats
+        const savedActivity = localStorage.getItem('pomodoro_activity_log');
+        if (savedActivity) {
+          STATE.activityLog = JSON.parse(savedActivity);
+        } else {
+          STATE.activityLog = {};
+        }
+
+        // Synchronize today's stats with activity log
+        const todayStr = getLocalDateString();
+        if (STATE.completedPomos > 0 || STATE.totalFocusSeconds > 0) {
+          if (!STATE.activityLog[todayStr]) {
+            STATE.activityLog[todayStr] = { pomos: STATE.completedPomos, seconds: STATE.totalFocusSeconds };
+          } else {
+            STATE.activityLog[todayStr].pomos = Math.max(STATE.activityLog[todayStr].pomos, STATE.completedPomos);
+            STATE.activityLog[todayStr].seconds = Math.max(STATE.activityLog[todayStr].seconds, STATE.totalFocusSeconds);
+          }
+        }
+
+        // Auto-migration from legacy pomodoro_stats_* keys
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('pomodoro_stats_')) {
+            try {
+              const raw = key.replace('pomodoro_stats_', '');
+              const parsedDate = new Date(raw);
+              if (!isNaN(parsedDate.getTime())) {
+                const isoStr = getLocalDateString(parsedDate);
+                const data = JSON.parse(localStorage.getItem(key));
+                if (!STATE.activityLog[isoStr]) {
+                  STATE.activityLog[isoStr] = {
+                    pomos: data.completedPomos || 0,
+                    seconds: data.totalFocusSeconds || 0
+                  };
+                }
+              }
+            } catch(e) {}
+          }
+        }
+
+      } catch (e) {
+        console.error('Failed to load local storage:', e);
+      }
+    }
+
+    function saveStorage() {
+      try {
+        localStorage.setItem('pomodoro_config', JSON.stringify(STATE.config));
+        localStorage.setItem('pomodoro_stats_' + new Date().toDateString(), JSON.stringify({
+          completedPomos: STATE.completedPomos,
+          totalFocusSeconds: STATE.totalFocusSeconds
+        }));
+        localStorage.setItem('pomodoro_tasks', JSON.stringify(STATE.tasks));
+        localStorage.setItem('pomodoro_yt', JSON.stringify({
+          videoId: STATE.yt.videoId,
+          volume: STATE.yt.volume,
+          currentTitle: STATE.yt.currentTitle
+        }));
+        localStorage.setItem('pomodoro_yt_history', JSON.stringify(STATE.ytHistory));
+        localStorage.setItem('pomodoro_activity_log', JSON.stringify(STATE.activityLog));
+      } catch (e) {
+        console.error('Failed to save local storage:', e);
+      }
+    }
+
+    // --- 2. WEB AUDIO API SYNTHESIZER (時報カウントダウン: 3秒前〜 ぽ・ぽ・ぽ・ぽーん) ---
+    let audioCtx = null;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    // 予告音「ポッ」（残り3秒、2秒、1秒 / 計3回）
+    function playPipSound() {
+      if (!STATE.config.soundEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        const now = ctx.currentTime;
+
+        // NHK・標準ラジオ時報基準音: 440Hz（A4、ラ）のピュアサイン波
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, now);
+
+        // クリーンなアタックと100msの歯切れの良い減衰（ポッ）
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(0.28, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.12);
+      } catch (err) {
+        console.warn('Pip sound failed:', err);
+      }
+    }
+
+    // 完了正報音「ポーーーーーーン」（残り0秒到達時）
+    function playChime() {
+      if (!STATE.config.soundEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        const now = ctx.currentTime;
+
+        // 正報: 880Hz（A5、オクターブ上の高音ラ）+ 微小な倍音（1760Hz）
+        // 澄み切った時報の美しいロングサステイン（約2.2秒）
+        const freqs = [
+          { f: 880, type: 'sine', peak: 0.35, decay: 2.2 },
+          { f: 1760, type: 'sine', peak: 0.08, decay: 1.4 }
+        ];
+
+        freqs.forEach(item => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = item.type;
+          osc.frequency.setValueAtTime(item.f, now);
+
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.linearRampToValueAtTime(item.peak, now + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + item.decay);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(now);
+          osc.stop(now + item.decay);
+        });
+      } catch (err) {
+        console.warn('Chime playback failed:', err);
+      }
+    }
+
+    // 設定モーダル用「試聴」（きっかり1秒間隔の ぽ・ぽ・ぽ・ぽーーーン）
+    let previewTimer1 = null;
+    let previewTimer2 = null;
+    let previewTimer3 = null;
+
+    function previewTimeSignal() {
+      if (previewTimer1) clearTimeout(previewTimer1);
+      if (previewTimer2) clearTimeout(previewTimer2);
+      if (previewTimer3) clearTimeout(previewTimer3);
+      getAudioContext();
+
+      // 0秒: ポッ (1回目)
+      playPipSound();
+
+      // 1.0秒後: ポッ (2回目)
+      previewTimer1 = setTimeout(() => {
+        playPipSound();
+      }, 1000);
+
+      // 2.0秒後: ポッ (3回目)
+      previewTimer2 = setTimeout(() => {
+        playPipSound();
+      }, 2000);
+
+      // 3.0秒後: ポーーーーーーン (完了正報)
+      previewTimer3 = setTimeout(() => {
+        playChime();
+        previewTimer1 = null;
+        previewTimer2 = null;
+        previewTimer3 = null;
+      }, 3000);
+    }
+
+    // --- 3. DOM ELEMENTS ---
+    const elTimerDisplay = document.getElementById('timer-display');
+    const elTimerBadge = document.getElementById('timer-mode-badge');
+    const elTimerProgress = document.getElementById('timer-progress');
+    const elBtnStartPause = document.getElementById('btn-start-pause');
+    const elStartIcon = document.getElementById('start-icon');
+    const elStartText = document.getElementById('start-text');
+    const elBtnReset = document.getElementById('btn-reset');
+    const elBtnSkip = document.getElementById('btn-skip');
+
+    const elTabWork = document.getElementById('tab-work');
+    const elTabShort = document.getElementById('tab-short');
+    const elTabLong = document.getElementById('tab-long');
+
+    const elRoundText = document.getElementById('round-text');
+    const elRoundDots = document.getElementById('round-dots');
+    const elCompletedPomos = document.getElementById('completed-pomos');
+    const elFocusMins = document.getElementById('focus-mins');
+    const elActiveTaskLabel = document.getElementById('active-task-label');
+
+    const elBgDimmer = document.getElementById('bg-dimmer');
+    const elYtUrlInput = document.getElementById('yt-url-input');
+    const elBtnLoadYt = document.getElementById('btn-load-yt');
+    const elBtnYtPlayPause = document.getElementById('btn-yt-play-pause');
+    const elIconYtPlayPause = document.getElementById('icon-yt-play-pause');
+    const elTextYtPlayPause = document.getElementById('text-yt-play-pause');
+    const elBtnYtStop = document.getElementById('btn-yt-stop');
+    const elYtPlaybackDot = document.getElementById('yt-playback-dot');
+    const elYtVolume = document.getElementById('yt-volume');
+    const elYtVolumeVal = document.getElementById('yt-volume-val');
+    const elChkAutoSync = document.getElementById('chk-auto-sync');
+    const elSeekBar = document.getElementById('yt-seek-bar');
+    const elCurrentTime = document.getElementById('yt-current-time');
+    const elDuration = document.getElementById('yt-duration');
+    const elYtLiveIndicator = document.getElementById('yt-live-indicator');
+    const elYtBgBadge = document.getElementById('yt-bg-badge');
+    const elYtStatusText = document.getElementById('yt-status-text');
+    const elBtnToggleCurrentFav = document.getElementById('btn-toggle-current-fav');
+    const elIconCurrentFav = document.getElementById('icon-current-fav');
+    const elBtnMobileSettings = document.getElementById('btn-mobile-settings');
+
+    const elModeBg = document.getElementById('mode-bg');
+    const elModePip = document.getElementById('mode-pip');
+    const elPipSlot = document.getElementById('pip-slot');
+    const elUnifiedWrapper = document.getElementById('unified-player-wrapper');
+
+    // YouTube Tabs & Panels
+    const elTabYtHistory = document.getElementById('tab-yt-history');
+    const elTabYtFavs = document.getElementById('tab-yt-favs');
+    const elTabYtPresets = document.getElementById('tab-yt-presets');
+    const elPanelYtHistory = document.getElementById('panel-yt-history');
+    const elPanelYtFavs = document.getElementById('panel-yt-favs');
+    const elPanelYtPresets = document.getElementById('panel-yt-presets');
+    const elBadgeHistoryCount = document.getElementById('badge-history-count');
+    const elBadgeFavsCount = document.getElementById('badge-favs-count');
+    const elBtnClearHistory = document.getElementById('btn-clear-history');
+
+    const elTaskForm = document.getElementById('task-form');
+    const elTaskInput = document.getElementById('task-input');
+    const elTaskList = document.getElementById('task-list');
+    const elTaskCount = document.getElementById('task-count');
+
+    const elBtnSoundToggle = document.getElementById('btn-sound-toggle');
+    const elBtnZenToggle = document.getElementById('btn-zen-toggle');
+    const elBtnExitZen = document.getElementById('btn-exit-zen');
+
+    const elSettingsModal = document.getElementById('settings-modal');
+    const elBtnOpenSettings = document.getElementById('btn-open-settings');
+    const elBtnCloseSettings = document.getElementById('btn-close-settings');
+    const elBtnSaveSettings = document.getElementById('btn-save-settings');
+    const elBtnTestSound = document.getElementById('btn-test-sound');
+
+    // Activity Heatmap Elements
+    const elHeatmapGrid = document.getElementById('heatmap-grid');
+    const elHeatmapMonths = document.getElementById('heatmap-months');
+    const elStreakCount = document.getElementById('streak-count');
+    const elTotalHarvestPomos = document.getElementById('total-harvest-pomos');
+    const elTotalHarvestHours = document.getElementById('total-harvest-hours');
+    const elHeatmapSelectedText = document.getElementById('heatmap-selected-text');
+
+    // --- 4. TIMER ENGINE ---
+    const CIRCUMFERENCE = 2 * Math.PI * 120; // 753.98
+
+    function updateDisplay() {
+      const minutes = Math.floor(STATE.timeLeft / 60);
+      const seconds = STATE.timeLeft % 60;
+      const formatted = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      
+      elTimerDisplay.textContent = formatted;
+      document.title = `(${formatted}) ${STATE.mode === 'work' ? '集中' : '休憩'} - Pomodoro Focus`;
+
+      // Progress bar (stroke-dashoffset)
+      const fraction = STATE.timeLeft / STATE.totalDuration;
+      const offset = CIRCUMFERENCE * (1 - fraction);
+      elTimerProgress.style.strokeDashoffset = offset;
+    }
+
+    function switchMode(newMode) {
+      STATE.mode = newMode;
+      let durationMinutes = STATE.config.workTime;
+      if (newMode === 'short') durationMinutes = STATE.config.shortTime;
+      if (newMode === 'long') durationMinutes = STATE.config.longTime;
+
+      STATE.timeLeft = durationMinutes * 60;
+      STATE.totalDuration = STATE.timeLeft;
+      pauseTimer();
+
+      // UI Tab update
+      const tabs = [
+        { el: elTabWork, active: newMode === 'work' },
+        { el: elTabShort, active: newMode === 'short' },
+        { el: elTabLong, active: newMode === 'long' }
+      ];
+
+      tabs.forEach(t => {
+        if (t.active) {
+          t.el.className = "flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 bg-purple-600 text-white shadow-lg shadow-purple-600/30 flex items-center justify-center gap-1.5";
+        } else {
+          t.el.className = "flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs sm:text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-white/5 transition flex items-center justify-center gap-1.5";
+        }
+      });
+
+      // Badge Update
+      if (newMode === 'work') {
+        elTimerBadge.textContent = 'FOCUS';
+        elTimerBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wider uppercase mb-1 bg-purple-500/20 text-purple-300 border border-purple-500/30';
+      } else if (newMode === 'short') {
+        elTimerBadge.textContent = 'SHORT BREAK';
+        elTimerBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wider uppercase mb-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+      } else {
+        elTimerBadge.textContent = 'LONG BREAK';
+        elTimerBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wider uppercase mb-1 bg-sky-500/20 text-sky-300 border border-sky-500/30';
+      }
+
+      updateDisplay();
+    }
+
+    function startTimer() {
+      if (STATE.status === 'running') return;
+      STATE.status = 'running';
+
+      elStartIcon.className = 'fa-solid fa-pause';
+      elStartText.textContent = '一時停止';
+      elBtnStartPause.classList.add('glow-pulse');
+
+      // YouTube Sync Auto-Play
+      if (STATE.config.autoSyncYouTube && STATE.yt.player && STATE.yt.isReady) {
+        try {
+          if (STATE.mode === 'work') {
+            STATE.yt.player.playVideo();
+          }
+        } catch(e) {}
+      }
+
+      STATE.timerId = setInterval(() => {
+        if (STATE.timeLeft > 0) {
+          STATE.timeLeft--;
+          if (STATE.mode === 'work') STATE.totalFocusSeconds++;
+          updateDisplay();
+
+          // 3秒前、2秒前、1秒前 の時報予告音（ポッ）
+          if (STATE.timeLeft === 3 || STATE.timeLeft === 2 || STATE.timeLeft === 1) {
+            playPipSound();
+          } else if (STATE.timeLeft === 0) {
+            // 0秒到達の瞬間に即時完了（ポーーーン）
+            onTimerComplete();
+          }
+        } else {
+          onTimerComplete();
+        }
+      }, 1000);
+    }
+
+    function pauseTimer() {
+      if (STATE.timerId) clearInterval(STATE.timerId);
+      STATE.timerId = null;
+      STATE.status = 'paused';
+
+      elStartIcon.className = 'fa-solid fa-play';
+      elStartText.textContent = '再開';
+      elBtnStartPause.classList.remove('glow-pulse');
+    }
+
+    function toggleStartPause() {
+      if (STATE.status === 'running') {
+        pauseTimer();
+      } else {
+        startTimer();
+      }
+    }
+
+    function resetTimer() {
+      pauseTimer();
+      elStartText.textContent = '開始';
+      let durationMinutes = STATE.config.workTime;
+      if (STATE.mode === 'short') durationMinutes = STATE.config.shortTime;
+      if (STATE.mode === 'long') durationMinutes = STATE.config.longTime;
+      STATE.timeLeft = durationMinutes * 60;
+      STATE.totalDuration = STATE.timeLeft;
+      updateDisplay();
+    }
+
+    function onTimerComplete() {
+      pauseTimer();
+      playChime();
+
+      if (STATE.mode === 'work') {
+        STATE.completedPomos++;
+        recordDailyActivity(1, STATE.config.workTime * 60);
+        saveStorage();
+        updateStats();
+
+        // If active task exists, increment its count
+        if (STATE.activeTaskId) {
+          const task = STATE.tasks.find(t => t.id === STATE.activeTaskId);
+          if (task) {
+            task.pomos = (task.pomos || 0) + 1;
+            renderTasks();
+            saveStorage();
+          }
+        }
+
+        // Determine next mode
+        if (STATE.round < STATE.totalRounds) {
+          STATE.round++;
+          updateRoundDisplay();
+          switchMode('short');
+        } else {
+          STATE.round = 1;
+          updateRoundDisplay();
+          switchMode('long');
+        }
+
+        // YouTube auto-pause on break
+        if (STATE.config.autoSyncYouTube && STATE.yt.player && STATE.yt.isReady) {
+          try { STATE.yt.player.pauseVideo(); } catch(e) {}
+        }
+
+      } else {
+        // Break finished
+        switchMode('work');
+      }
+
+      if (STATE.config.autoStart) {
+        startTimer();
+      }
+    }
+
+    function skipSession() {
+      if (confirm('現在のセッションをスキップして次へ進みますか？')) {
+        onTimerComplete();
+      }
+    }
+
+    function updateRoundDisplay() {
+      elRoundText.textContent = `${STATE.round} / ${STATE.totalRounds}`;
+      let html = '';
+      for (let i = 1; i <= STATE.totalRounds; i++) {
+        if (i <= STATE.round) {
+          html += '<span class="w-2.5 h-2.5 rounded-full bg-purple-500 shadow-sm shadow-purple-500/50"></span>';
+        } else {
+          html += '<span class="w-2.5 h-2.5 rounded-full bg-white/20"></span>';
+        }
+      }
+      elRoundDots.innerHTML = html;
+    }
+
+    function updateStats() {
+      elCompletedPomos.textContent = STATE.completedPomos;
+      const mins = Math.floor(STATE.totalFocusSeconds / 60);
+      elFocusMins.textContent = `(合計 ${mins}分)`;
+    }
+
+    // --- 5. YOUTUBE IFRAME INTEGRATION & HISTORY MANAGEMENT ---
+    function extractVideoId(urlOrId) {
+      if (!urlOrId) return null;
+      urlOrId = urlOrId.trim();
+      if (/^[a-zA-Z0-9_-]{11}$/.test(urlOrId)) return urlOrId;
+
+      // 1. URLオブジェクト解析（通常/LIVE/アーカイブ/Shorts/埋め込み対応）
+      try {
+        let testUrl = urlOrId;
+        if (!/^https?:\/\//i.test(testUrl)) {
+          testUrl = 'https://' + testUrl;
+        }
+        const parsed = new URL(testUrl);
+        const host = parsed.hostname.toLowerCase();
+        const path = parsed.pathname;
+
+        // 短縮URL: youtu.be/VIDEO_ID
+        if (host === 'youtu.be') {
+          const parts = path.split('/').filter(Boolean);
+          if (parts.length > 0 && /^[a-zA-Z0-9_-]{11}$/.test(parts[0])) {
+            return parts[0];
+          }
+        }
+
+        // YouTube ドメイン: youtube.com, www.youtube.com, m.youtube.com 等
+        if (host.includes('youtube.com')) {
+          // 1) /live/VIDEO_ID (YouTube Live生配信・アーカイブ共有URL)
+          const liveMatch = path.match(/\/live\/([a-zA-Z0-9_-]{11})/);
+          if (liveMatch) return liveMatch[1];
+
+          // 2) /shorts/VIDEO_ID
+          const shortsMatch = path.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
+          if (shortsMatch) return shortsMatch[1];
+
+          // 3) /embed/VIDEO_ID
+          const embedMatch = path.match(/\/embed\/([a-zA-Z0-9_-]{11})/);
+          if (embedMatch) return embedMatch[1];
+
+          // 4) /v/VIDEO_ID
+          const vMatch = path.match(/\/v\/([a-zA-Z0-9_-]{11})/);
+          if (vMatch) return vMatch[1];
+
+          // 5) ?v=VIDEO_ID (通常のwatch URL)
+          const vParam = parsed.searchParams.get('v');
+          if (vParam && /^[a-zA-Z0-9_-]{11}$/.test(vParam)) {
+            return vParam;
+          }
+        }
+      } catch (e) {}
+
+      // 2. 正規表現フォールバック（不完全なURLや特殊パラメータ対応）
+      const regExp = /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|live\/|shorts\/))([a-zA-Z0-9_-]{11})/;
+      const match = urlOrId.match(regExp);
+      if (match && match[1] && match[1].length === 11) {
+        return match[1];
+      }
+
+      return null;
+    }
+
+    window.onYouTubeIframeAPIReady = function() {
+      createYouTubePlayer('youtube-player-host');
+    };
+
+    // --- BUFFERING WATCHDOG & MOBILE AUTOPLAY RECOVERY ---
+    let bufferingWatchdogTimer = null;
+
+    function clearBufferingWatchdog() {
+      if (bufferingWatchdogTimer) {
+        clearTimeout(bufferingWatchdogTimer);
+        bufferingWatchdogTimer = null;
+      }
+    }
+
+    function startBufferingWatchdog() {
+      clearBufferingWatchdog();
+      // スマホで3.5秒以上バッファリングや未開始で停止した場合の自動リカバリー
+      bufferingWatchdogTimer = setTimeout(() => {
+        if (!STATE.yt.player || !STATE.yt.isReady) {
+          updatePlaybackUI('paused');
+          updateStatusText('準備完了: 再生ボタンを押してください');
+          return;
+        }
+        try {
+          const state = (typeof STATE.yt.player.getPlayerState === 'function') ? STATE.yt.player.getPlayerState() : -1;
+          if (state !== YT.PlayerState.PLAYING) {
+            console.warn('[Pomodoro YT] Playback buffering watchdog triggered. Attempting mobile autoplay un-mute trick...');
+            
+            // モバイル自動再生保護対策: 一時ミュートして再生を強制開始
+            const prevVolume = STATE.yt.volume;
+            if (typeof STATE.yt.player.mute === 'function') STATE.yt.player.mute();
+            if (typeof STATE.yt.player.playVideo === 'function') STATE.yt.player.playVideo();
+
+            setTimeout(() => {
+              try {
+                const newState = (typeof STATE.yt.player.getPlayerState === 'function') ? STATE.yt.player.getPlayerState() : -1;
+                if (newState === YT.PlayerState.PLAYING) {
+                  // ミュート再生が通過したら元の音量でアンミュート
+                  if (typeof STATE.yt.player.unMute === 'function') STATE.yt.player.unMute();
+                  if (typeof STATE.yt.player.setVolume === 'function') STATE.yt.player.setVolume(prevVolume);
+                  updatePlaybackUI('playing');
+                } else {
+                  // それでもダメならユーザーのタップ待機状態（再生ボタン）へスムーズに遷移
+                  if (typeof STATE.yt.player.unMute === 'function') STATE.yt.player.unMute();
+                  if (typeof STATE.yt.player.setVolume === 'function') STATE.yt.player.setVolume(prevVolume);
+                  updatePlaybackUI('paused');
+                  updateStatusText('タップして再生を開始してください: ' + (STATE.yt.currentTitle || ''));
+                }
+              } catch(err) {
+                updatePlaybackUI('paused');
+              }
+            }, 800);
+          }
+        } catch(e) {
+          updatePlaybackUI('paused');
+        }
+      }, 3500);
+    }
+
+    function createYouTubePlayer(targetContainerId = 'youtube-player-host', autoPlayOnReady = false) {
+      if (!window.YT || !window.YT.Player) return;
+
+      if (STATE.yt.player) {
+        try { STATE.yt.player.destroy(); } catch(e) {}
+        STATE.yt.player = null;
+      }
+
+      STATE.yt.player = new YT.Player(targetContainerId, {
+        videoId: STATE.yt.videoId,
+        playerVars: {
+          autoplay: autoPlayOnReady ? 1 : 0,
+          controls: 1,
+          showinfo: 0,
+          rel: 0,
+          loop: 1,
+          playlist: STATE.yt.videoId, // for looping
+          modestbranding: 1,
+          playsinline: 1,
+          enablejsapi: 1,
+          origin: window.location.origin
+        },
+        events: {
+          onReady: function(event) {
+            STATE.yt.isReady = true;
+            event.target.setVolume(STATE.yt.volume);
+            const videoData = (typeof STATE.yt.player.getVideoData === 'function') ? STATE.yt.player.getVideoData() : null;
+            if (videoData && videoData.title && videoData.title !== STATE.yt.videoId) {
+              STATE.yt.currentTitle = videoData.title;
+              updateHistoryTitle(STATE.yt.videoId, videoData.title);
+            }
+            const isLive = Boolean(videoData && (videoData.isLive === true || videoData.isLive === 1));
+            STATE.yt.isLive = isLive;
+            updateStatusText();
+            updateCurrentFavIcon();
+            updateSeekBarUI();
+            updateMediaSession(STATE.yt.currentTitle);
+            applyDisplayModeUI(STATE.yt.displayMode, false);
+
+            if (autoPlayOnReady) {
+              try {
+                event.target.playVideo();
+                startBufferingWatchdog();
+              } catch(e) {}
+            }
+          },
+          onStateChange: function(event) {
+            const videoData = (typeof STATE.yt.player.getVideoData === 'function') ? STATE.yt.player.getVideoData() : null;
+            const isLive = Boolean(videoData && (videoData.isLive === true || videoData.isLive === 1));
+            STATE.yt.isLive = isLive;
+
+            if (event.data === YT.PlayerState.PLAYING) {
+              clearBufferingWatchdog();
+              const realTitle = (videoData && videoData.title) ? videoData.title : STATE.yt.currentTitle;
+              if (realTitle && realTitle !== STATE.yt.videoId) {
+                STATE.yt.currentTitle = realTitle;
+                updateHistoryTitle(STATE.yt.videoId, realTitle);
+              }
+              const prefix = isLive ? '🔴 LIVE中: ' : '再生中: ';
+              updateStatusText(prefix + STATE.yt.currentTitle);
+              updatePlaybackUI('playing');
+              updateCurrentFavIcon();
+              startSeekUpdater();
+              updateMediaSession(STATE.yt.currentTitle);
+              ensureBackgroundAudioAnchor();
+              saveStorage();
+            } else if (event.data === YT.PlayerState.PAUSED) {
+              clearBufferingWatchdog();
+              const prefix = isLive ? '🔴 LIVE一時停止: ' : '一時停止: ';
+              updateStatusText(prefix + STATE.yt.currentTitle);
+              updatePlaybackUI('paused');
+              updateSeekBarUI();
+            } else if (event.data === YT.PlayerState.BUFFERING) {
+              updatePlaybackUI('buffering');
+              updateSeekBarUI();
+              startBufferingWatchdog();
+            } else if (event.data === YT.PlayerState.CUED) {
+              // モバイルブラウザの保護により自動再生が一時保留された状態
+              clearBufferingWatchdog();
+              try {
+                event.target.playVideo();
+              } catch(e) {}
+              setTimeout(() => {
+                if (STATE.yt.player && STATE.yt.player.getPlayerState && STATE.yt.player.getPlayerState() !== YT.PlayerState.PLAYING) {
+                  updatePlaybackUI('paused');
+                  updateStatusText('準備完了: 再生ボタンを押してください');
+                }
+              }, 800);
+            } else if (event.data === -1) { // UNSTARTED
+              startBufferingWatchdog();
+            } else if (event.data === YT.PlayerState.ENDED) {
+              clearBufferingWatchdog();
+              updatePlaybackUI('stopped');
+              updateStatusText('再生完了: ' + STATE.yt.currentTitle);
+              if (seekUpdateTimer) clearInterval(seekUpdateTimer);
+              if (elSeekBar) elSeekBar.value = 0;
+              if (elCurrentTime) elCurrentTime.textContent = '00:00';
+            }
+          },
+          onError: function(event) {
+            clearBufferingWatchdog();
+            let errorMsg = '動画の読み込みに失敗しました。';
+            if (event.data === 101 || event.data === 150) {
+              errorMsg = 'この動画はYouTube側で外部サイトへの埋め込み再生が禁止されています。別の動画をお試しください。';
+            } else if (event.data === 100) {
+              errorMsg = '動画が見つかりませんでした（非公開または削除済み）。';
+            } else if (event.data === 2) {
+              errorMsg = 'YouTube動画URLまたはIDが無効です。';
+            } else if (event.data === 5) {
+              errorMsg = 'HTML5プレイヤーエラーが発生しました。';
+            }
+            updatePlaybackUI('stopped');
+            updateStatusText('⚠️ ' + errorMsg);
+            alert(errorMsg);
+          }
+        }
+      });
+    }
+
+    // --- SEAMLESS DISPLAY MODE (BACKGROUND <-> PIP) & PIP ANCHOR LOGIC ---
+    let morphTimer = null;
+
+    function updatePipPosition() {
+      if (STATE.yt.displayMode !== 'pip' || !elPipSlot || !elUnifiedWrapper) return;
+      const rect = elPipSlot.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        elUnifiedWrapper.style.top = `${rect.top}px`;
+        elUnifiedWrapper.style.left = `${rect.left}px`;
+        elUnifiedWrapper.style.width = `${rect.width}px`;
+        elUnifiedWrapper.style.height = `${rect.height}px`;
+      }
+    }
+
+    function setDisplayMode(newMode) {
+      if (STATE.yt.displayMode === newMode) return;
+      STATE.yt.displayMode = newMode;
+      saveStorage();
+      applyDisplayModeUI(newMode, true);
+    }
+
+    function applyDisplayModeUI(mode, animate = false) {
+      if (!elUnifiedWrapper) return;
+
+      if (morphTimer) {
+        clearTimeout(morphTimer);
+        morphTimer = null;
+      }
+
+      if (animate) {
+        elUnifiedWrapper.classList.add('morphing');
+      } else {
+        elUnifiedWrapper.classList.remove('morphing');
+      }
+
+      if (mode === 'bg') {
+        if (elModeBg) elModeBg.className = "px-2.5 py-1 rounded-lg bg-purple-600 text-white font-medium transition";
+        if (elModePip) elModePip.className = "px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition";
+
+        if (animate) {
+          elUnifiedWrapper.className = 'mode-bg morphing';
+          elUnifiedWrapper.style.top = '0px';
+          elUnifiedWrapper.style.left = '0px';
+          elUnifiedWrapper.style.width = '100vw';
+          elUnifiedWrapper.style.height = '100vh';
+
+          morphTimer = setTimeout(() => {
+            elUnifiedWrapper.classList.remove('morphing');
+            elUnifiedWrapper.style.top = '';
+            elUnifiedWrapper.style.left = '';
+            elUnifiedWrapper.style.width = '';
+            elUnifiedWrapper.style.height = '';
+            if (elPipSlot) elPipSlot.classList.add('hidden');
+          }, 360);
+        } else {
+          elUnifiedWrapper.className = 'mode-bg';
+          elUnifiedWrapper.style.top = '';
+          elUnifiedWrapper.style.left = '';
+          elUnifiedWrapper.style.width = '';
+          elUnifiedWrapper.style.height = '';
+          if (elPipSlot) elPipSlot.classList.add('hidden');
+        }
+      } else {
+        // pip mode
+        if (elModePip) elModePip.className = "px-2.5 py-1 rounded-lg bg-purple-600 text-white font-medium transition";
+        if (elModeBg) elModeBg.className = "px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition";
+
+        if (elPipSlot) elPipSlot.classList.remove('hidden');
+
+        if (animate) {
+          elUnifiedWrapper.className = 'mode-pip morphing';
+          requestAnimationFrame(() => {
+            updatePipPosition();
+            morphTimer = setTimeout(() => {
+              elUnifiedWrapper.classList.remove('morphing');
+            }, 360);
+          });
+        } else {
+          elUnifiedWrapper.className = 'mode-pip';
+          requestAnimationFrame(() => {
+            updatePipPosition();
+          });
+        }
+      }
+    }
+
+    // --- SEEK BAR & MEDIA SESSION & BACKGROUND PLAYBACK LOGIC ---
+    let seekUpdateTimer = null;
+    let isUserSeeking = false;
+
+    function formatDuration(sec) {
+      if (isNaN(sec) || sec < 0) return '00:00';
+      const totalSec = Math.floor(sec);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      const mm = String(m).padStart(2, '0');
+      const ss = String(s).padStart(2, '0');
+      return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+    }
+
+    function updateSeekBarUI() {
+      if (!STATE.yt.player || !STATE.yt.isReady || isUserSeeking) return;
+      try {
+        const cur = (typeof STATE.yt.player.getCurrentTime === 'function') ? STATE.yt.player.getCurrentTime() : 0;
+        const dur = (typeof STATE.yt.player.getDuration === 'function') ? STATE.yt.player.getDuration() : 0;
+        const videoData = (typeof STATE.yt.player.getVideoData === 'function') ? STATE.yt.player.getVideoData() : null;
+        const playerState = (typeof STATE.yt.player.getPlayerState === 'function') ? STATE.yt.player.getPlayerState() : -1;
+
+        const isLive = Boolean(videoData && (videoData.isLive === true || videoData.isLive === 1)) || (dur === 0 && playerState === YT.PlayerState.PLAYING);
+        STATE.yt.isLive = isLive;
+
+        // LIVE インジケーター（追いつくボタン）の表示切替
+        if (elYtLiveIndicator) {
+          if (isLive) {
+            elYtLiveIndicator.classList.remove('hidden');
+            elYtLiveIndicator.classList.add('inline-flex');
+          } else {
+            elYtLiveIndicator.classList.add('hidden');
+            elYtLiveIndicator.classList.remove('inline-flex');
+          }
+        }
+
+        if (isLive) {
+          // --- YouTube LIVE (生配信) ---
+          if (dur > 0) {
+            // DVR巻き戻し対応の生配信
+            if (elSeekBar) {
+              elSeekBar.disabled = false;
+              elSeekBar.max = Math.floor(dur);
+              elSeekBar.value = Math.floor(cur);
+            }
+            const lagSec = Math.floor(dur - cur);
+            if (lagSec < 15) {
+              if (elCurrentTime) elCurrentTime.innerHTML = '<span class="text-red-400 font-bold flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>LIVE</span>';
+            } else {
+              if (elCurrentTime) elCurrentTime.textContent = `-${formatDuration(lagSec)}`;
+            }
+            if (elDuration) elDuration.textContent = formatDuration(dur);
+          } else {
+            // DVRなし（リアルタイム生中継のみ）
+            if (elSeekBar) {
+              elSeekBar.disabled = true;
+              elSeekBar.max = 100;
+              elSeekBar.value = 100;
+            }
+            if (elCurrentTime) elCurrentTime.innerHTML = '<span class="text-red-400 font-bold flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>LIVE</span>';
+            if (elDuration) elDuration.textContent = '生中継';
+          }
+        } else if (dur > 0) {
+          // --- 通常動画 または LIVEアーカイブ録画 ---
+          if (elSeekBar) {
+            elSeekBar.disabled = false;
+            elSeekBar.max = Math.floor(dur);
+            elSeekBar.value = Math.floor(cur);
+          }
+          if (elCurrentTime) elCurrentTime.textContent = formatDuration(cur);
+          if (elDuration) elDuration.textContent = formatDuration(dur);
+
+          // Update MediaSession Position State if supported
+          if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
+            try {
+              navigator.mediaSession.setPositionState({
+                duration: dur,
+                playbackRate: STATE.yt.player.getPlaybackRate ? STATE.yt.player.getPlaybackRate() : 1,
+                position: Math.min(cur, dur)
+              });
+            } catch(e) {}
+          }
+        } else {
+          if (elCurrentTime) elCurrentTime.textContent = formatDuration(cur);
+          if (elDuration) elDuration.textContent = '00:00';
+        }
+      } catch (err) {}
+    }
+
+    function startSeekUpdater() {
+      if (seekUpdateTimer) clearInterval(seekUpdateTimer);
+      updateSeekBarUI();
+      seekUpdateTimer = setInterval(updateSeekBarUI, 500);
+    }
+
+    // Media Session API for Notification & Lock Screen Controls
+    function updateMediaSession(title) {
+      if (!('mediaSession' in navigator)) return;
+      try {
+        const vid = STATE.yt.videoId;
+        const displayTitle = title || STATE.yt.currentTitle || 'YouTube BGM';
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: displayTitle,
+          artist: STATE.yt.isLive ? 'Pomodoro Focus (LIVE BGM)' : 'Pomodoro Focus (BGM)',
+          album: 'krmts.com ワークスペース',
+          artwork: [
+            { src: `https://i.ytimg.com/vi/${vid}/mqdefault.jpg`, sizes: '320x180', type: 'image/jpeg' },
+            { src: `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`, sizes: '480x360', type: 'image/jpeg' }
+          ]
+        });
+
+        navigator.mediaSession.setActionHandler('play', () => {
+          if (STATE.yt.player && typeof STATE.yt.player.playVideo === 'function') {
+            STATE.yt.player.playVideo();
+            updatePlaybackUI('playing');
+          }
+        });
+
+        navigator.mediaSession.setActionHandler('pause', () => {
+          if (STATE.yt.player && typeof STATE.yt.player.pauseVideo === 'function') {
+            STATE.yt.player.pauseVideo();
+            updatePlaybackUI('paused');
+          }
+        });
+
+        navigator.mediaSession.setActionHandler('stop', () => {
+          stopYouTubeVideo();
+        });
+
+        navigator.mediaSession.setActionHandler('seekto', (details) => {
+          if (details.seekTime !== undefined && STATE.yt.player && typeof STATE.yt.player.seekTo === 'function') {
+            STATE.yt.player.seekTo(details.seekTime, true);
+            updateSeekBarUI();
+          }
+        });
+
+        navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+          const skipTime = details.seekOffset || 10;
+          if (STATE.yt.player && typeof STATE.yt.player.getCurrentTime === 'function') {
+            const cur = STATE.yt.player.getCurrentTime();
+            STATE.yt.player.seekTo(Math.max(cur - skipTime, 0), true);
+            updateSeekBarUI();
+          }
+        });
+
+        navigator.mediaSession.setActionHandler('seekforward', (details) => {
+          const skipTime = details.seekOffset || 10;
+          if (STATE.yt.player && typeof STATE.yt.player.getCurrentTime === 'function') {
+            const cur = STATE.yt.player.getCurrentTime();
+            const dur = STATE.yt.player.getDuration ? STATE.yt.player.getDuration() : cur + skipTime;
+            STATE.yt.player.seekTo(Math.min(cur + skipTime, dur), true);
+            updateSeekBarUI();
+          }
+        });
+      } catch (err) {
+        console.warn('MediaSession update failed:', err);
+      }
+    }
+
+    // Silent Audio Anchor to prevent mobile browsers from suspending background execution
+    let bgAudioOsc = null;
+    let bgAudioGain = null;
+    function ensureBackgroundAudioAnchor() {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        if (!bgAudioOsc) {
+          bgAudioOsc = audioCtx.createOscillator();
+          bgAudioGain = audioCtx.createGain();
+          bgAudioGain.gain.setValueAtTime(0.00001, audioCtx.currentTime); // Inaudible to human ear
+          bgAudioOsc.frequency.setValueAtTime(440, audioCtx.currentTime);
+          bgAudioOsc.connect(bgAudioGain);
+          bgAudioGain.connect(audioCtx.destination);
+          bgAudioOsc.start();
+        }
+      } catch (e) {}
+    }
+
+    function updatePlaybackUI(playbackStatus) {
+      if (!elYtPlaybackDot || !elIconYtPlayPause || !elTextYtPlayPause) return;
+      if (playbackStatus === 'playing') {
+        elYtPlaybackDot.className = 'w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400 animate-pulse shrink-0';
+        elIconYtPlayPause.className = 'fa-solid fa-pause text-[10px]';
+        elTextYtPlayPause.textContent = '一時停止';
+        if (elBtnYtPlayPause) elBtnYtPlayPause.className = 'px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-200 hover:text-white transition flex items-center gap-1.5 text-xs font-semibold active:scale-95';
+      } else if (playbackStatus === 'paused') {
+        elYtPlaybackDot.className = 'w-2 h-2 rounded-full bg-amber-400 shrink-0';
+        elIconYtPlayPause.className = 'fa-solid fa-play text-[10px]';
+        elTextYtPlayPause.textContent = '再開';
+        if (elBtnYtPlayPause) elBtnYtPlayPause.className = 'px-3 py-1.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/30 text-purple-200 hover:text-white transition flex items-center gap-1.5 text-xs font-semibold active:scale-95';
+      } else if (playbackStatus === 'buffering') {
+        elYtPlaybackDot.className = 'w-2 h-2 rounded-full bg-purple-400 animate-ping shrink-0';
+        elIconYtPlayPause.className = 'fa-solid fa-spinner fa-spin text-[10px]';
+        elTextYtPlayPause.textContent = '読込中';
+      } else { // stopped
+        elYtPlaybackDot.className = 'w-2 h-2 rounded-full bg-slate-500 shrink-0';
+        elIconYtPlayPause.className = 'fa-solid fa-play text-[10px]';
+        elTextYtPlayPause.textContent = '再生';
+        if (elBtnYtPlayPause) elBtnYtPlayPause.className = 'px-3 py-1.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/30 text-purple-200 hover:text-white transition flex items-center gap-1.5 text-xs font-semibold active:scale-95';
+      }
+    }
+
+    function stopYouTubeVideo() {
+      if (STATE.yt.player && typeof STATE.yt.player.pauseVideo === 'function') {
+        STATE.yt.player.pauseVideo();
+        if (typeof STATE.yt.player.seekTo === 'function') {
+          STATE.yt.player.seekTo(0);
+        }
+      }
+      if (seekUpdateTimer) clearInterval(seekUpdateTimer);
+      if (elSeekBar) elSeekBar.value = 0;
+      if (elCurrentTime) elCurrentTime.textContent = '00:00';
+      updatePlaybackUI('stopped');
+      updateStatusText(STATE.yt.currentTitle ? `停止: ${STATE.yt.currentTitle}` : '停止中');
+    }
+
+    function togglePlayPauseVideo() {
+      if (!STATE.yt.player || !STATE.yt.isReady) {
+        if (STATE.yt.videoId) {
+          loadYouTubeVideo(STATE.yt.videoId, STATE.yt.currentTitle);
+        }
+        return;
+      }
+      try {
+        const state = STATE.yt.player.getPlayerState();
+        if (state === YT.PlayerState.PLAYING) {
+          STATE.yt.player.pauseVideo();
+          updatePlaybackUI('paused');
+          updateStatusText(STATE.yt.currentTitle ? `一時停止: ${STATE.yt.currentTitle}` : '一時停止中');
+        } else {
+          STATE.yt.player.playVideo();
+          updatePlaybackUI('playing');
+          updateStatusText(STATE.yt.currentTitle ? `再生中: ${STATE.yt.currentTitle}` : '再生中');
+        }
+      } catch (err) {
+        console.warn('Play/Pause toggle failed:', err);
+      }
+    }
+
+    async function fetchYouTubeTitle(videoId) {
+      if (!videoId) return null;
+      try {
+        const url = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}&format=json`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.title && typeof data.title === 'string' && data.title.trim()) {
+            return data.title.trim();
+          }
+        }
+      } catch (err) {
+        // oEmbed failed, ignored
+      }
+      return null;
+    }
+
+    function updateStatusText(customText) {
+      if (customText) {
+        elYtStatusText.textContent = customText;
+      } else {
+        elYtStatusText.textContent = STATE.yt.currentTitle ? `準備完了: ${STATE.yt.currentTitle}` : `準備完了: ${STATE.yt.videoId}`;
+      }
+    }
+
+    function loadYouTubeVideo(rawInput, optTitle) {
+      const vid = extractVideoId(rawInput);
+      if (!vid) {
+        alert('正しいYouTube動画のURLまたは11桁のIDを入力してください。');
+        return;
+      }
+
+      STATE.yt.videoId = vid;
+
+      // 既存履歴に登録済みの有効なタイトルがあるか確認
+      const existing = STATE.ytHistory.find(item => item.id === vid);
+      let initialTitle = optTitle;
+      if (!initialTitle && existing && existing.title && existing.title !== vid) {
+        initialTitle = existing.title;
+      }
+      if (!initialTitle) {
+        initialTitle = (vid === 'jfKfPfyJRdk') ? 'Lofi Girl - beats to relax/study to' : vid;
+      }
+
+      STATE.yt.currentTitle = initialTitle;
+      STATE.yt.isLive = false;
+      if (elYtLiveIndicator) {
+        elYtLiveIndicator.classList.add('hidden');
+        elYtLiveIndicator.classList.remove('inline-flex');
+      }
+
+      // ユーザータップ直後にWeb Audioコンテキストをアンロック
+      ensureBackgroundAudioAnchor();
+
+      // 履歴に追加・更新
+      addToHistory(vid, initialTitle);
+      saveStorage();
+
+      updateStatusText('読み込み中: ' + initialTitle);
+      updatePlaybackUI('buffering');
+      updateCurrentFavIcon();
+
+      // モバイルバッファリング停止対策ウォッチドッグ起動
+      startBufferingWatchdog();
+
+      if (STATE.yt.player && STATE.yt.isReady) {
+        try {
+          STATE.yt.player.loadVideoById(vid);
+          STATE.yt.player.playVideo();
+        } catch(err) {
+          createYouTubePlayer('youtube-player-host', true);
+        }
+      } else {
+        createYouTubePlayer('youtube-player-host', true);
+      }
+
+      // 非同期で正式タイトルを取得して履歴・お気に入りを即同期
+      fetchYouTubeTitle(vid).then(realTitle => {
+        if (realTitle && realTitle !== vid) {
+          updateHistoryTitle(vid, realTitle);
+        }
+      });
+    }
+
+    // --- HISTORY & FAVORITES LOGIC ---
+    function addToHistory(videoId, title) {
+      if (!videoId) return;
+      const idx = STATE.ytHistory.findIndex(item => item.id === videoId);
+      let isFav = false;
+      let finalTitle = title || videoId;
+
+      if (idx !== -1) {
+        isFav = STATE.ytHistory[idx].isFavorite || false;
+        if (!title || title === videoId) {
+          finalTitle = STATE.ytHistory[idx].title || videoId;
+        }
+        STATE.ytHistory.splice(idx, 1);
+      }
+
+      STATE.ytHistory.unshift({
+        id: videoId,
+        title: finalTitle,
+        timestamp: Date.now(),
+        isFavorite: isFav
+      });
+
+      if (STATE.ytHistory.length > 50) {
+        STATE.ytHistory = STATE.ytHistory.slice(0, 50);
+      }
+
+      saveStorage();
+      renderHistory();
+      renderFavorites();
+      updateBadgeCounts();
+    }
+
+    function updateHistoryTitle(videoId, newTitle) {
+      if (!videoId || !newTitle || newTitle === videoId) return;
+      let changed = false;
+      STATE.ytHistory.forEach(item => {
+        if (item.id === videoId && item.title !== newTitle) {
+          item.title = newTitle;
+          changed = true;
+        }
+      });
+      if (STATE.yt.videoId === videoId) {
+        STATE.yt.currentTitle = newTitle;
+        if (STATE.yt.player && STATE.yt.isReady) {
+          try {
+            const state = STATE.yt.player.getPlayerState();
+            if (state === YT.PlayerState.PLAYING) {
+              updateStatusText('再生中: ' + newTitle);
+            } else if (state === YT.PlayerState.PAUSED) {
+              updateStatusText('一時停止: ' + newTitle);
+            } else {
+              updateStatusText('準備完了: ' + newTitle);
+            }
+          } catch(e) {
+            updateStatusText('準備完了: ' + newTitle);
+          }
+        } else {
+          updateStatusText('準備完了: ' + newTitle);
+        }
+      }
+      if (changed) {
+        saveStorage();
+        renderHistory();
+        renderFavorites();
+      }
+    }
+
+    function toggleFavorite(videoId) {
+      const item = STATE.ytHistory.find(i => i.id === videoId);
+      if (item) {
+        item.isFavorite = !item.isFavorite;
+        saveStorage();
+        renderHistory();
+        renderFavorites();
+        updateBadgeCounts();
+        updateCurrentFavIcon();
+      } else {
+        // If not in history, add it as favorite
+        STATE.ytHistory.unshift({
+          id: videoId,
+          title: STATE.yt.currentTitle || videoId,
+          timestamp: Date.now(),
+          isFavorite: true
+        });
+        saveStorage();
+        renderHistory();
+        renderFavorites();
+        updateBadgeCounts();
+        updateCurrentFavIcon();
+      }
+    }
+
+    function deleteHistoryItem(videoId) {
+      STATE.ytHistory = STATE.ytHistory.filter(i => i.id !== videoId);
+      saveStorage();
+      renderHistory();
+      renderFavorites();
+      updateBadgeCounts();
+      updateCurrentFavIcon();
+    }
+
+    function clearAllHistory() {
+      if (STATE.ytHistory.length === 0) return;
+      if (confirm('視聴履歴をすべて削除しますか？\n※お気に入り登録された動画も履歴から消去されます。')) {
+        STATE.ytHistory = [];
+        saveStorage();
+        renderHistory();
+        renderFavorites();
+        updateBadgeCounts();
+        updateCurrentFavIcon();
+      }
+    }
+
+    async function reconcileHistoryTitles() {
+      if (!STATE.ytHistory || STATE.ytHistory.length === 0) return;
+      let hasUpdates = false;
+      for (const item of STATE.ytHistory) {
+        if (!item.title || item.title === item.id || /^[a-zA-Z0-9_-]{11}$/.test(item.title)) {
+          const real = await fetchYouTubeTitle(item.id);
+          if (real && real !== item.title) {
+            item.title = real;
+            hasUpdates = true;
+            if (STATE.yt.videoId === item.id) {
+              STATE.yt.currentTitle = real;
+            }
+          }
+        }
+      }
+      if (hasUpdates) {
+        saveStorage();
+        renderHistory();
+        renderFavorites();
+        updateStatusText();
+      }
+    }
+
+    function updateBadgeCounts() {
+      elBadgeHistoryCount.textContent = STATE.ytHistory.length;
+      const favsCount = STATE.ytHistory.filter(i => i.isFavorite).length;
+      elBadgeFavsCount.textContent = favsCount;
+    }
+
+    function updateCurrentFavIcon() {
+      const current = STATE.ytHistory.find(i => i.id === STATE.yt.videoId);
+      if (current && current.isFavorite) {
+        elIconCurrentFav.className = 'fa-solid fa-star text-amber-400';
+        elBtnToggleCurrentFav.title = 'お気に入りを解除';
+      } else {
+        elIconCurrentFav.className = 'fa-regular fa-star text-slate-400';
+        elBtnToggleCurrentFav.title = 'お気に入りに追加';
+      }
+    }
+
+    function formatTimeAgo(ts) {
+      const diff = Math.floor((Date.now() - ts) / 1000);
+      if (diff < 60) return 'たった今';
+      if (diff < 3600) return `${Math.floor(diff / 60)}分前`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}時間前`;
+      const d = new Date(ts);
+      return `${d.getMonth() + 1}/${d.getDate()}`;
+    }
+
+    function renderHistory() {
+      elPanelYtHistory.innerHTML = '';
+      if (STATE.ytHistory.length === 0) {
+        elPanelYtHistory.innerHTML = `
+          <div class="text-center py-6 text-slate-500 text-xs flex flex-col items-center gap-1.5">
+            <i class="fa-solid fa-clock-rotate-left text-lg opacity-40"></i>
+            <span>視聴履歴はありません</span>
+            <span class="text-[10px] text-slate-600">動画を再生するとここに自動保存されます</span>
+          </div>`;
+        return;
+      }
+
+      STATE.ytHistory.forEach(item => {
+        const row = createMediaCard(item, false);
+        elPanelYtHistory.appendChild(row);
+      });
+    }
+
+    function renderFavorites() {
+      elPanelYtFavs.innerHTML = '';
+      const favs = STATE.ytHistory.filter(i => i.isFavorite);
+      if (favs.length === 0) {
+        elPanelYtFavs.innerHTML = `
+          <div class="text-center py-6 text-slate-500 text-xs flex flex-col items-center gap-1.5">
+            <i class="fa-solid fa-star text-lg opacity-40"></i>
+            <span>お気に入り動画はありません</span>
+            <span class="text-[10px] text-slate-600 flex items-center justify-center gap-1"><i class="fa-regular fa-star text-amber-400 text-[10px]"></i> アイコンを押すとよく使う動画としてピン留めできます</span>
+          </div>`;
+        return;
+      }
+
+      favs.forEach(item => {
+        const row = createMediaCard(item, true);
+        elPanelYtFavs.appendChild(row);
+      });
+    }
+
+    function createMediaCard(item, isFavTab) {
+      const isCurrent = item.id === STATE.yt.videoId;
+      const div = document.createElement('div');
+      div.className = `flex items-center justify-between p-2 rounded-xl border transition ${
+        isCurrent 
+          ? 'bg-purple-900/40 border-purple-500/50 shadow-md shadow-purple-900/30' 
+          : 'bg-slate-900/60 border-white/5 hover:border-white/15'
+      }`;
+
+      div.innerHTML = `
+        <div class="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer select-none card-click-target">
+          <img src="https://i.ytimg.com/vi/${escapeHtml(item.id)}/mqdefault.jpg" alt="thumb" class="w-12 h-8 rounded-lg object-cover border border-white/10 shrink-0 bg-slate-800" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 60%22><rect fill=%22%23334155%22 width=%22100%22 height=%2260%22/><text fill=%22%2394a3b8%22 x=%2250%%22 y=%2250%%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-size=%2214%22>YT</text></svg>'">
+          <div class="min-w-0 flex-1">
+            <p class="text-xs font-medium truncate ${isCurrent ? 'text-purple-300 font-bold' : 'text-slate-200'}">
+              ${escapeHtml(item.title || item.id)}
+            </p>
+            <div class="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+              <span>${formatTimeAgo(item.timestamp)}</span>
+              ${isCurrent ? '<span class="text-emerald-400 font-semibold flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>再生中</span>' : ''}
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5 shrink-0 ml-2">
+          <button class="btn-fav p-1.5 rounded-lg hover:bg-white/10 text-xs transition" title="${item.isFavorite ? 'お気に入り解除' : 'お気に入り登録'}">
+            <i class="${item.isFavorite ? 'fa-solid fa-star text-amber-400' : 'fa-regular fa-star text-slate-400 hover:text-amber-400'}"></i>
+          </button>
+          <button class="btn-play p-1.5 rounded-lg hover:bg-white/10 text-xs text-purple-400 hover:text-purple-300 transition" title="この動画を再生">
+            <i class="fa-solid fa-play text-[11px]"></i>
+          </button>
+          <button class="btn-del p-1.5 rounded-lg hover:bg-white/10 text-xs text-slate-500 hover:text-red-400 transition" title="履歴から削除">
+            <i class="fa-solid fa-trash-can text-[10px]"></i>
+          </button>
+        </div>
+      `;
+
+      // Play on card or play button click
+      const triggerPlay = () => {
+        elYtUrlInput.value = `https://www.youtube.com/watch?v=${item.id}`;
+        loadYouTubeVideo(item.id, item.title);
+      };
+      div.querySelector('.card-click-target').addEventListener('click', triggerPlay);
+      div.querySelector('.btn-play').addEventListener('click', triggerPlay);
+
+      // Favorite toggle
+      div.querySelector('.btn-fav').addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleFavorite(item.id);
+      });
+
+      // Delete item
+      div.querySelector('.btn-del').addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteHistoryItem(item.id);
+      });
+
+      return div;
+    }
+
+    // Toggle current video favorite button
+    elBtnToggleCurrentFav.addEventListener('click', () => {
+      toggleFavorite(STATE.yt.videoId);
+    });
+
+    // YouTube Tab Switching
+    elTabYtHistory.addEventListener('click', () => {
+      elTabYtHistory.className = "px-2.5 py-1 rounded-lg bg-purple-600 text-white font-medium transition flex items-center gap-1.5";
+      elTabYtFavs.className = "px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition flex items-center gap-1.5";
+      elTabYtPresets.className = "px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition flex items-center gap-1.5";
+      elPanelYtHistory.classList.remove('hidden');
+      elPanelYtFavs.classList.add('hidden');
+      elPanelYtPresets.classList.add('hidden');
+      elBtnClearHistory.classList.remove('hidden');
+    });
+
+    elTabYtFavs.addEventListener('click', () => {
+      elTabYtFavs.className = "px-2.5 py-1 rounded-lg bg-purple-600 text-white font-medium transition flex items-center gap-1.5";
+      elTabYtHistory.className = "px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition flex items-center gap-1.5";
+      elTabYtPresets.className = "px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition flex items-center gap-1.5";
+      elPanelYtFavs.classList.remove('hidden');
+      elPanelYtHistory.classList.add('hidden');
+      elPanelYtPresets.classList.add('hidden');
+      elBtnClearHistory.classList.add('hidden');
+    });
+
+    elTabYtPresets.addEventListener('click', () => {
+      elTabYtPresets.className = "px-2.5 py-1 rounded-lg bg-purple-600 text-white font-medium transition flex items-center gap-1.5";
+      elTabYtHistory.className = "px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition flex items-center gap-1.5";
+      elTabYtFavs.className = "px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition flex items-center gap-1.5";
+      elPanelYtPresets.classList.remove('hidden');
+      elPanelYtHistory.classList.add('hidden');
+      elPanelYtFavs.classList.add('hidden');
+      elBtnClearHistory.classList.add('hidden');
+    });
+
+    elBtnClearHistory.addEventListener('click', clearAllHistory);
+
+    // Preset Buttons Click
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const vid = btn.dataset.id;
+        const title = btn.dataset.title;
+        elYtUrlInput.value = `https://www.youtube.com/watch?v=${vid}`;
+        loadYouTubeVideo(vid, title);
+      });
+    });
+
+    // YouTube Display Mode Toggle (Background vs PIP) - 完全シームレス（再生継続・中断ゼロ）
+    if (elModeBg) {
+      elModeBg.addEventListener('click', () => {
+        setDisplayMode('bg');
+      });
+    }
+
+    if (elModePip) {
+      elModePip.addEventListener('click', () => {
+        setDisplayMode('pip');
+      });
+    }
+
+    // 小窓（PIP）モード時のスクロール・リサイズ追従リスナー
+    window.addEventListener('scroll', () => {
+      if (STATE.yt.displayMode === 'pip') {
+        requestAnimationFrame(updatePipPosition);
+      }
+    }, { passive: true });
+
+    window.addEventListener('resize', () => {
+      if (STATE.yt.displayMode === 'pip') {
+        requestAnimationFrame(updatePipPosition);
+      }
+    }, { passive: true });
+
+    elBtnLoadYt.addEventListener('click', () => {
+      const val = (elYtUrlInput.value || '').trim();
+      if (!val && STATE.yt.videoId) {
+        togglePlayPauseVideo();
+      } else {
+        loadYouTubeVideo(val);
+      }
+    });
+    elYtUrlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const val = (elYtUrlInput.value || '').trim();
+        if (!val && STATE.yt.videoId) {
+          togglePlayPauseVideo();
+        } else {
+          loadYouTubeVideo(val);
+        }
+      }
+    });
+
+    if (elBtnYtPlayPause) {
+      elBtnYtPlayPause.addEventListener('click', togglePlayPauseVideo);
+    }
+    if (elBtnYtStop) {
+      elBtnYtStop.addEventListener('click', stopYouTubeVideo);
+    }
+
+    // YouTube Seek Bar Input & Change
+    if (elSeekBar) {
+      elSeekBar.addEventListener('input', (e) => {
+        isUserSeeking = true;
+        const val = parseFloat(e.target.value);
+        if (elCurrentTime) elCurrentTime.textContent = formatDuration(val);
+      });
+
+      elSeekBar.addEventListener('change', (e) => {
+        const val = parseFloat(e.target.value);
+        if (STATE.yt.player && typeof STATE.yt.player.seekTo === 'function') {
+          STATE.yt.player.seekTo(val, true);
+        }
+        isUserSeeking = false;
+        updateSeekBarUI();
+      });
+    }
+
+    if (elYtBgBadge) {
+      elYtBgBadge.addEventListener('click', () => {
+        if (typeof openSettingsModal === 'function') {
+          openSettingsModal();
+        }
+      });
+    }
+
+    if (elYtLiveIndicator) {
+      elYtLiveIndicator.addEventListener('click', () => {
+        if (!STATE.yt.player || !STATE.yt.isReady) return;
+        try {
+          const dur = (typeof STATE.yt.player.getDuration === 'function') ? STATE.yt.player.getDuration() : 0;
+          if (dur > 0 && typeof STATE.yt.player.seekTo === 'function') {
+            STATE.yt.player.seekTo(dur, true);
+            isUserSeeking = false;
+            updateSeekBarUI();
+          }
+        } catch(e) {}
+      });
+    }
+
+    // Page Visibility Change (for Background Audio continuity on Mobile)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        if (STATE.yt.player && STATE.yt.isReady) {
+          ensureBackgroundAudioAnchor();
+          updateMediaSession(STATE.yt.currentTitle);
+          if (STATE.yt.player.getPlayerState && STATE.yt.player.getPlayerState() === YT.PlayerState.PLAYING) {
+            setTimeout(() => {
+              try {
+                if (STATE.yt.player && STATE.yt.player.getPlayerState() !== YT.PlayerState.PLAYING) {
+                  STATE.yt.player.playVideo();
+                }
+              } catch(e) {}
+            }, 300);
+          }
+        }
+      } else {
+        updateSeekBarUI();
+      }
+    });
+
+    elYtVolume.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      STATE.yt.volume = val;
+      elYtVolumeVal.textContent = val + '%';
+      if (STATE.yt.player && STATE.yt.isReady) {
+        STATE.yt.player.setVolume(val);
+      }
+      saveStorage();
+    });
+
+    elChkAutoSync.addEventListener('change', (e) => {
+      STATE.config.autoSyncYouTube = e.target.checked;
+      saveStorage();
+    });
+
+    // --- 6. TODO TASK LIST LOGIC ---
+    function renderTasks() {
+      elTaskList.innerHTML = '';
+      elTaskCount.textContent = `${STATE.tasks.length} タスク`;
+
+      if (STATE.tasks.length === 0) {
+        elTaskList.innerHTML = '<li class="text-center text-[11px] text-slate-500 py-3">登録されたタスクはありません</li>';
+        elActiveTaskLabel.textContent = '作業に集中しましょう';
+        return;
+      }
+
+      STATE.tasks.forEach(task => {
+        const li = document.createElement('li');
+        li.className = `flex items-center justify-between p-2.5 rounded-xl border transition ${
+          task.id === STATE.activeTaskId 
+            ? 'bg-purple-900/40 border-purple-500/50 text-white' 
+            : 'bg-slate-900/50 border-white/5 text-slate-300 hover:border-white/15'
+        }`;
+
+        li.innerHTML = `
+          <div class="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer select-none">
+            <input type="checkbox" ${task.done ? 'checked' : ''} class="task-chk rounded bg-slate-800 border-white/20 text-purple-600 focus:ring-0 cursor-pointer" />
+            <span class="text-xs truncate ${task.done ? 'line-through text-slate-500' : ''}">${escapeHtml(task.title)}</span>
+          </div>
+          <div class="flex items-center gap-2 ml-2">
+            ${task.pomos ? `<span class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/25 text-rose-300 font-mono"><svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-2.5 h-2.5 shrink-0"><path d="M50 22 C49 14, 53 10, 56 8" stroke="#10b981" stroke-width="7" stroke-linecap="round"/><path d="M48 24 C38 16, 26 20, 32 30 C38 34, 46 28, 48 24 Z" fill="#34d399"/><path d="M52 24 C62 16, 74 20, 68 30 C62 34, 54 28, 52 24 Z" fill="#34d399"/><path d="M50 32 C28 32, 12 44, 12 64 C12 84, 28 94, 50 94 C72 94, 88 84, 88 64 C88 44, 72 32, 50 32 Z" fill="#ef4444"/><path d="M22 56 C22 46, 30 38, 42 36" stroke="white" stroke-width="6" stroke-linecap="round" opacity="0.4"/></svg>${task.pomos}</span>` : ''}
+            <button class="task-del text-slate-500 hover:text-red-400 text-xs p-1 transition"><i class="fa-solid fa-trash-can"></i></button>
+          </div>
+        `;
+
+        // Checkbox click
+        li.querySelector('.task-chk').addEventListener('change', (e) => {
+          task.done = e.target.checked;
+          renderTasks();
+          saveStorage();
+        });
+
+        // Set active task
+        li.querySelector('div').addEventListener('click', (e) => {
+          if (e.target.type === 'checkbox') return;
+          STATE.activeTaskId = task.id;
+          elActiveTaskLabel.textContent = task.title;
+          renderTasks();
+        });
+
+        // Delete click
+        li.querySelector('.task-del').addEventListener('click', () => {
+          STATE.tasks = STATE.tasks.filter(t => t.id !== task.id);
+          if (STATE.activeTaskId === task.id) {
+            STATE.activeTaskId = null;
+            elActiveTaskLabel.textContent = '作業に集中しましょう';
+          }
+          renderTasks();
+          saveStorage();
+        });
+
+        elTaskList.appendChild(li);
+      });
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+    }
+
+    elTaskForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const val = elTaskInput.value.trim();
+      if (!val) return;
+      STATE.tasks.push({
+        id: Date.now().toString(),
+        title: val,
+        done: false,
+        pomos: 0
+      });
+      elTaskInput.value = '';
+      renderTasks();
+      saveStorage();
+    });
+
+    // --- 7. BUTTON ACTIONS & SHORTCUTS ---
+    elTabWork.addEventListener('click', () => switchMode('work'));
+    elTabShort.addEventListener('click', () => switchMode('short'));
+    elTabLong.addEventListener('click', () => switchMode('long'));
+
+    elBtnStartPause.addEventListener('click', toggleStartPause);
+    elBtnReset.addEventListener('click', resetTimer);
+    elBtnSkip.addEventListener('click', skipSession);
+
+    // Quick Time Adjusters
+    document.getElementById('btn-minus-1m').addEventListener('click', () => {
+      if (STATE.timeLeft > 60) {
+        STATE.timeLeft -= 60;
+        updateDisplay();
+      }
+    });
+    document.getElementById('btn-plus-1m').addEventListener('click', () => {
+      STATE.timeLeft += 60;
+      updateDisplay();
+    });
+    document.getElementById('btn-plus-5m').addEventListener('click', () => {
+      STATE.timeLeft += 300;
+      updateDisplay();
+    });
+
+    // Sound Toggle
+    elBtnSoundToggle.addEventListener('click', () => {
+      STATE.config.soundEnabled = !STATE.config.soundEnabled;
+      elBtnSoundToggle.innerHTML = STATE.config.soundEnabled ? '<i class="fa-solid fa-volume-high"></i>' : '<i class="fa-solid fa-volume-xmark text-red-400"></i>';
+      saveStorage();
+    });
+
+    // Zen Mode
+    function toggleZen() {
+      document.body.classList.toggle('zen-active');
+      const isZen = document.body.classList.contains('zen-active');
+      elBtnExitZen.classList.toggle('hidden', !isZen);
+    }
+    elBtnZenToggle.addEventListener('click', toggleZen);
+    elBtnExitZen.addEventListener('click', toggleZen);
+
+    // Settings Modal Open/Close
+    function openSettingsModal() {
+      document.getElementById('cfg-work-time').value = STATE.config.workTime;
+      document.getElementById('cfg-short-time').value = STATE.config.shortTime;
+      document.getElementById('cfg-long-time').value = STATE.config.longTime;
+      document.getElementById('cfg-dimmer').value = STATE.config.dimmerOpacity;
+      document.getElementById('cfg-dimmer-val').textContent = STATE.config.dimmerOpacity + '%';
+      document.getElementById('cfg-auto-start').checked = STATE.config.autoStart;
+      elSettingsModal.classList.remove('hidden');
+    }
+    elBtnOpenSettings.addEventListener('click', openSettingsModal);
+    if (elBtnMobileSettings) {
+      elBtnMobileSettings.addEventListener('click', openSettingsModal);
+    }
+
+    elBtnCloseSettings.addEventListener('click', () => elSettingsModal.classList.add('hidden'));
+    elBtnTestSound.addEventListener('click', previewTimeSignal);
+
+    document.getElementById('cfg-dimmer').addEventListener('input', (e) => {
+      const val = e.target.value;
+      document.getElementById('cfg-dimmer-val').textContent = val + '%';
+      elBgDimmer.style.backgroundColor = `rgba(2, 6, 23, ${val / 100})`;
+    });
+
+    elBtnSaveSettings.addEventListener('click', () => {
+      const w = parseInt(document.getElementById('cfg-work-time').value, 10) || 25;
+      const s = parseInt(document.getElementById('cfg-short-time').value, 10) || 5;
+      const l = parseInt(document.getElementById('cfg-long-time').value, 10) || 15;
+      const dim = parseInt(document.getElementById('cfg-dimmer').value, 10) || 75;
+      const autoStart = document.getElementById('cfg-auto-start').checked;
+
+      STATE.config.workTime = w;
+      STATE.config.shortTime = s;
+      STATE.config.longTime = l;
+      STATE.config.dimmerOpacity = dim;
+      STATE.config.autoStart = autoStart;
+
+      elBgDimmer.style.backgroundColor = `rgba(2, 6, 23, ${dim / 100})`;
+      saveStorage();
+      elSettingsModal.classList.add('hidden');
+      switchMode(STATE.mode);
+    });
+
+    // Keyboard Shortcuts
+    window.addEventListener('keydown', (e) => {
+      if (['input', 'textarea'].includes(e.target.tagName.toLowerCase())) return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        toggleStartPause();
+      } else if (e.key === 'z' || e.key === 'Z') {
+        toggleZen();
+      } else if (e.key === 'r' || e.key === 'R') {
+        resetTimer();
+      }
+    });
+
+    // --- 7.5. ACTIVITY HEATMAP LOGIC (GitHub Contribution Graph) ---
+    function recordDailyActivity(pomosToAdd = 0, secondsToAdd = 0) {
+      const today = getLocalDateString();
+      if (!STATE.activityLog[today]) {
+        STATE.activityLog[today] = { pomos: 0, seconds: 0 };
+      }
+      STATE.activityLog[today].pomos += pomosToAdd;
+      STATE.activityLog[today].seconds += secondsToAdd;
+      saveStorage();
+      renderHeatmap();
+    }
+
+    function renderHeatmap() {
+      if (!elHeatmapGrid || !elHeatmapMonths) return;
+
+      elHeatmapGrid.innerHTML = '';
+      elHeatmapMonths.innerHTML = '';
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = getLocalDateString(today);
+
+      // 過去18週間（日曜日〜土曜日の7マス × 18列 ＝ 126日分）
+      const totalWeeks = 18;
+      const currentDayOfWeek = today.getDay(); // 0: 日, ..., 6: 土
+      
+      // 表示終了日（今週の土曜日）
+      const endSaturday = new Date(today);
+      endSaturday.setDate(today.getDate() + (6 - currentDayOfWeek));
+
+      // 開始日（18週間前の日曜日）
+      const startDate = new Date(endSaturday);
+      startDate.setDate(endSaturday.getDate() - (totalWeeks * 7 - 1));
+
+      // 統計集計用変数
+      let totalPomos = 0;
+      let totalSeconds = 0;
+
+      // 日付ごとのマップを走査
+      for (const [dateKey, item] of Object.entries(STATE.activityLog)) {
+        totalPomos += (item.pomos || 0);
+        totalSeconds += (item.seconds || 0);
+      }
+
+      // ストリーク（連続集中日数）の算出
+      let streak = 0;
+      const checkDate = new Date(today);
+      const checkTodayStr = getLocalDateString(checkDate);
+      const hasTodayActivity = STATE.activityLog[checkTodayStr] && STATE.activityLog[checkTodayStr].pomos > 0;
+
+      if (!hasTodayActivity) {
+        // 今日まだ完了していない場合は、昨日から遡る
+        checkDate.setDate(checkDate.getDate() - 1);
+      }
+
+      while (true) {
+        const dStr = getLocalDateString(checkDate);
+        if (STATE.activityLog[dStr] && STATE.activityLog[dStr].pomos > 0) {
+          streak++;
+          checkDate.setDate(checkDate.getDate() - 1);
+        } else {
+          break;
+        }
+      }
+
+      // サマリーバッジの更新
+      if (elStreakCount) elStreakCount.textContent = `${streak}日連続`;
+      if (elTotalHarvestPomos) elTotalHarvestPomos.textContent = `${totalPomos}個`;
+      if (elTotalHarvestHours) {
+        const hours = (totalSeconds / 3600).toFixed(1);
+        elTotalHarvestHours.textContent = `${hours}時間`;
+      }
+
+      // 週ごとの列と月ラベルの描画
+      const cursorDate = new Date(startDate);
+      let lastMonth = -1;
+
+      for (let w = 0; w < totalWeeks; w++) {
+        // 月ラベルの判定（その週の日曜日の月）
+        const weekMonth = cursorDate.getMonth() + 1;
+        const monthLabelSpan = document.createElement('div');
+        monthLabelSpan.className = 'w-[22px] text-left shrink-0 text-[10px] text-slate-400 font-mono';
+
+        if (weekMonth !== lastMonth) {
+          monthLabelSpan.textContent = `${weekMonth}月`;
+          lastMonth = weekMonth;
+        }
+        elHeatmapMonths.appendChild(monthLabelSpan);
+
+        // 列（Week Column）コンテナ
+        const col = document.createElement('div');
+        col.className = 'flex flex-col gap-1.5 shrink-0';
+
+        for (let d = 0; d < 7; d++) {
+          const curStr = getLocalDateString(cursorDate);
+          const isFuture = cursorDate > today;
+          const isToday = curStr === todayStr;
+          const activity = STATE.activityLog[curStr] || { pomos: 0, seconds: 0 };
+          const pCount = activity.pomos || 0;
+          const pSec = activity.seconds || 0;
+
+          const cell = document.createElement('div');
+          cell.className = 'w-3.5 h-3.5 rounded-[3px] transition-all duration-150 relative cursor-pointer select-none';
+          cell.dataset.date = curStr;
+          cell.dataset.pomos = pCount;
+          cell.dataset.seconds = pSec;
+
+          if (isFuture) {
+            cell.className += ' bg-transparent border border-white/5 opacity-20 pointer-events-none';
+          } else {
+            // 色レベル判定
+            if (pCount === 0) {
+              cell.className += ' bg-slate-900/90 border border-white/10 hover:border-white/30';
+            } else if (pCount <= 2) {
+              cell.className += ' bg-emerald-950/80 border border-emerald-700/50 hover:border-emerald-500 shadow-sm shadow-emerald-900/40';
+            } else if (pCount <= 4) {
+              cell.className += ' bg-emerald-700/80 border border-emerald-500/60 hover:border-emerald-400 shadow-sm shadow-emerald-700/50';
+            } else if (pCount <= 7) {
+              cell.className += ' bg-emerald-500 border border-emerald-400 hover:border-emerald-300 shadow-md shadow-emerald-500/40';
+            } else {
+              cell.className += ' bg-emerald-300 border border-emerald-100 hover:border-white shadow-lg shadow-emerald-400/60';
+            }
+
+            if (isToday) {
+              cell.className += ' ring-2 ring-purple-400 ring-offset-1 ring-offset-slate-950';
+            }
+
+            // ホバー＆クリックイベント
+            cell.addEventListener('mouseenter', () => showHeatmapDetail(curStr, pCount, pSec));
+            cell.addEventListener('click', () => showHeatmapDetail(curStr, pCount, pSec));
+          }
+
+          col.appendChild(cell);
+          cursorDate.setDate(cursorDate.getDate() + 1);
+        }
+
+        elHeatmapGrid.appendChild(col);
+      }
+
+      // デフォルトで本日の情報を表示
+      const todayActivity = STATE.activityLog[todayStr] || { pomos: 0, seconds: 0 };
+      showHeatmapDetail(todayStr, todayActivity.pomos, todayActivity.seconds, true);
+    }
+
+    function showHeatmapDetail(dateStr, pomos, seconds, isDefault = false) {
+      if (!elHeatmapSelectedText) return;
+      const d = new Date(dateStr + 'T00:00:00');
+      const days = ['日', '月', '火', '水', '木', '金', '土'];
+      const formattedDate = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 (${days[d.getDay()]})`;
+      const prefix = isDefault ? '<span class="text-purple-400 font-semibold mr-1">[本日]</span>' : '';
+
+      if (pomos > 0) {
+        const mins = Math.round(seconds / 60);
+        const hours = (mins / 60).toFixed(1);
+        elHeatmapSelectedText.innerHTML = `${prefix}<span class="text-white font-semibold">${formattedDate}</span>: <span class="text-rose-300 font-bold">🍅 ${pomos}ポモドーロ</span> (<span class="text-purple-300 font-mono">${mins}分 / ${hours}時間集中</span>)`;
+      } else {
+        elHeatmapSelectedText.innerHTML = `${prefix}<span class="text-slate-300">${formattedDate}</span>: <span class="text-slate-500">集中セッション記録なし</span>`;
+      }
+    }
+
+    // --- 8. INITIALIZATION ---
+    loadStorage();
+    elBgDimmer.style.backgroundColor = `rgba(2, 6, 23, ${STATE.config.dimmerOpacity / 100})`;
+    elYtVolume.value = STATE.yt.volume;
+    elYtVolumeVal.textContent = STATE.yt.volume + '%';
+    elChkAutoSync.checked = STATE.config.autoSyncYouTube;
+
+    switchMode('work');
+    updateRoundDisplay();
+    updateStats();
+    renderTasks();
+    renderHistory();
+    renderFavorites();
+    updateBadgeCounts();
+    updateCurrentFavIcon();
+    reconcileHistoryTitles();
+    applyDisplayModeUI(STATE.yt.displayMode, false);
+    renderHeatmap();
+
+  </script>
+
+  <!-- Load YouTube IFrame API -->
+  <script src="https://www.youtube.com/iframe_api"></script>
+
+</body>
+</html>

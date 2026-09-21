@@ -1,0 +1,209 @@
+{% extends 'travel/base.html' %}
+{% load static %}
+
+{% block title %}
+  {% if is_create %}新しい旅を計画 - たびしお{% else %}旅行の基本情報編集 - {{ trip.title }}{% endif %}
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 680px; margin: 0 auto;">
+  <div style="margin-bottom: 1.5rem;">
+    <a href="{% if is_create %}{% url 'travel:trip_list' %}{% else %}{% url 'travel:trip_detail' trip.id %}{% endif %}" class="btn-action-outline">
+      ← 戻る
+    </a>
+  </div>
+
+  <div style="background: #FFFFFF; border-radius: var(--radius-lg); border: 1px solid var(--border-light); padding: 2rem; box-shadow: var(--shadow-md);">
+    <h1 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 8px;">
+      {% if is_create %}
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent-sky)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
+        <span>新しい旅を計画する</span>
+      {% else %}
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent-sky)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+        <span>旅行情報の編集</span>
+      {% endif %}
+    </h1>
+    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.75rem;">
+      旅行の基本情報と日程を設定します。期間に応じて「Day 1, Day 2...」の日程が自動生成されます。
+    </p>
+
+    <form method="POST" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <!-- Title -->
+      <div class="form-group">
+        <label class="form-label" for="id_title">旅行タイトル <span style="color: #EF4444;">*</span></label>
+        <input type="text" name="title" id="id_title" class="form-input" required 
+               value="{% if trip %}{{ trip.title }}{% endif %}" 
+               placeholder="例: 北海道3泊4日 絶景ドライブ旅 / 京都週末寺社めぐり">
+      </div>
+
+      <!-- Destination -->
+      <div class="form-group">
+        <label class="form-label" for="id_destination">主な旅行先・エリア</label>
+        <input type="text" name="destination" id="id_destination" class="form-input" 
+               value="{% if trip %}{{ trip.destination }}{% endif %}" 
+               placeholder="例: 北海道（札幌・美瑛・旭川）">
+      </div>
+
+      <!-- Date Range -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;" class="form-group">
+        <div>
+          <label class="form-label" for="id_start_date">開始日 <span style="color: #EF4444;">*</span></label>
+          <input type="date" name="start_date" id="id_start_date" class="form-input" required
+                 value="{% if trip %}{{ trip.start_date|date:'Y-m-d' }}{% else %}{{ today }}{% endif %}">
+        </div>
+        <div>
+          <label class="form-label" for="id_end_date">終了日 <span style="color: #EF4444;">*</span></label>
+          <input type="date" name="end_date" id="id_end_date" class="form-input" required
+                 value="{% if trip %}{{ trip.end_date|date:'Y-m-d' }}{% else %}{{ today }}{% endif %}">
+        </div>
+      </div>
+
+      <!-- Preset Cover Image -->
+      <div class="form-group">
+        <label class="form-label">カバーデザイン（テーマ写真）</label>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0.75rem; margin-top: 0.5rem;">
+          <label style="cursor: pointer;">
+            <input type="radio" name="cover_preset" value="hokkaido" style="display: none;" 
+                   {% if not trip or trip.cover_preset == 'hokkaido' %}checked{% endif %} onchange="updatePresetSelection(this)">
+            <div class="cover-option-box cover-hokkaido {% if not trip or trip.cover_preset == 'hokkaido' %}is-selected{% endif %}">
+              <span style="display: inline-flex; align-items: center; gap: 4px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L4 12h5l-3 6h12l-3-6h5z"></path><line x1="12" y1="18" x2="12" y2="22"></line></svg>
+                <span>北海道・自然</span>
+              </span>
+            </div>
+          </label>
+
+          <label style="cursor: pointer;">
+            <input type="radio" name="cover_preset" value="kyoto" style="display: none;" 
+                   {% if trip.cover_preset == 'kyoto' %}checked{% endif %} onchange="updatePresetSelection(this)">
+            <div class="cover-option-box cover-kyoto {% if trip.cover_preset == 'kyoto' %}is-selected{% endif %}">
+              <span style="display: inline-flex; align-items: center; gap: 4px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="5" x2="21" y2="5"></line><line x1="4" y1="8" x2="20" y2="8"></line><line x1="7" y1="8" x2="7" y2="21"></line><line x1="17" y1="8" x2="17" y2="21"></line></svg>
+                <span>京都・古都</span>
+              </span>
+            </div>
+          </label>
+
+          <label style="cursor: pointer;">
+            <input type="radio" name="cover_preset" value="okinawa" style="display: none;" 
+                   {% if trip.cover_preset == 'okinawa' %}checked{% endif %} onchange="updatePresetSelection(this)">
+            <div class="cover-option-box cover-okinawa {% if trip.cover_preset == 'okinawa' %}is-selected{% endif %}">
+              <span style="display: inline-flex; align-items: center; gap: 4px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line></svg>
+                <span>沖縄・ビーチ</span>
+              </span>
+            </div>
+          </label>
+
+          <label style="cursor: pointer;">
+            <input type="radio" name="cover_preset" value="tokyo" style="display: none;" 
+                   {% if trip.cover_preset == 'tokyo' %}checked{% endif %} onchange="updatePresetSelection(this)">
+            <div class="cover-option-box cover-tokyo {% if trip.cover_preset == 'tokyo' %}is-selected{% endif %}">
+              <span style="display: inline-flex; align-items: center; gap: 4px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="9" y1="22" x2="9" y2="22.01"></line><line x1="15" y1="22" x2="15" y2="22.01"></line><line x1="9" y1="6" x2="9" y2="6.01"></line><line x1="15" y1="6" x2="15" y2="6.01"></line></svg>
+                <span>アーバン・夜景</span>
+              </span>
+            </div>
+          </label>
+
+          <label style="cursor: pointer;">
+            <input type="radio" name="cover_preset" value="fuji" style="display: none;" 
+                   {% if trip.cover_preset == 'fuji' %}checked{% endif %} onchange="updatePresetSelection(this)">
+            <div class="cover-option-box cover-fuji {% if trip.cover_preset == 'fuji' %}is-selected{% endif %}">
+              <span style="display: inline-flex; align-items: center; gap: 4px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3l4 8 5-5 5 15H2L8 3z"></path></svg>
+                <span>富士山・温泉</span>
+              </span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div class="form-group">
+        <label class="form-label" for="id_description">旅行のテーマ・メモ</label>
+        <textarea name="description" id="id_description" class="form-textarea" rows="3" 
+                  placeholder="旅の目的や合流場所、注意事項などをメモしておけます">{% if trip %}{{ trip.description }}{% endif %}</textarea>
+      </div>
+
+      <!-- Members Selection -->
+      {% if all_users %}
+      <div class="form-group">
+        <label class="form-label">共同編集メンバーを追加</label>
+        <div style="max-height: 160px; overflow-y: auto; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 0.75rem; background: var(--bg-main);">
+          {% for u in all_users %}
+          <label style="display: flex; align-items: center; gap: 0.6rem; padding: 0.35rem 0; cursor: pointer;">
+            <input type="checkbox" name="members" value="{{ u.id }}" 
+                   {% if trip and u in trip.members.all %}checked{% endif %}>
+            <div class="user-avatar-circle" style="background-color: {{ u.profile.avatar_color|default:'#0284C7' }}; width: 26px; height: 26px; font-size: 0.75rem;">
+              {{ u.profile.nickname|default:u.username|make_list|first|upper }}
+            </div>
+            <span style="font-size: 0.85rem; font-weight: 600;">{{ u.profile.nickname|default:u.username }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Submit Button -->
+      <div style="margin-top: 2rem; display: flex; align-items: center; justify-content: flex-end; gap: 1rem;">
+        <a href="{% if is_create %}{% url 'travel:trip_list' %}{% else %}{% url 'travel:trip_detail' trip.id %}{% endif %}" class="btn-action-outline">
+          キャンセル
+        </a>
+        <button type="submit" class="btn-travel-new" style="padding: 0.75rem 1.5rem; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 6px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <span>{% if is_create %}旅程を作成してスタート{% else %}変更を保存する{% endif %}</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+.cover-option-box {
+  height: 64px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  border: 2px solid transparent;
+  transition: var(--transition-fast);
+}
+.cover-option-box.is-selected {
+  border-color: var(--accent-sky);
+  box-shadow: 0 0 0 3px var(--accent-sky-glow);
+  transform: scale(1.02);
+}
+</style>
+
+<script>
+function updatePresetSelection(radio) {
+  document.querySelectorAll('.cover-option-box').forEach(el => el.classList.remove('is-selected'));
+  radio.closest('label').querySelector('.cover-option-box').classList.add('is-selected');
+}
+
+function initDestinationAutocomplete() {
+  const destInput = document.getElementById('id_destination');
+  if (!destInput || typeof google === 'undefined' || !google.maps || !google.maps.places) return;
+  const ac = new google.maps.places.Autocomplete(destInput, {
+    types: ['(regions)'],
+    fields: ['name', 'formatted_address']
+  });
+  ac.addListener('place_changed', () => {
+    const place = ac.getPlace();
+    if (place && place.name) {
+      destInput.value = place.name;
+    }
+  });
+}
+</script>
+{% if GOOGLE_MAPS_API_KEY %}
+<script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAPS_API_KEY }}&libraries=places&language=ja&region=JP&callback=initDestinationAutocomplete" async defer></script>
+{% endif %}
+{% endblock %}

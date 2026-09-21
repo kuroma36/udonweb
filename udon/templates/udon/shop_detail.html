@@ -653,8 +653,8 @@ function deleteCurrentLightboxPhoto() {
 
   const { photoType, photoId } = currentLightboxData;
   const url = (photoType === 'review')
-    ? `/api/reviews/${photoId}/delete-photo/`
-    : `/api/photos/${photoId}/delete/`;
+    ? `/udon/api/reviews/${photoId}/delete-photo/`
+    : `/udon/api/photos/${photoId}/delete/`;
 
   function getCsrfToken() {
     const cookieMatch = document.cookie.match(/csrftoken=([^;]+)/);
@@ -705,7 +705,7 @@ function deleteMyReview(reviewId) {
   const formData = new FormData();
   formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
-  fetch(`/api/reviews/${reviewId}/delete/`, {
+  fetch(`/udon/api/reviews/${reviewId}/delete/`, {
     method: 'POST',
     headers: {
       'X-CSRFToken': '{{ csrf_token }}',
@@ -744,7 +744,7 @@ function toggleReviewLike(reviewId) {
 
   btn.disabled = true;
 
-  fetch(`/api/reviews/${reviewId}/like/`, {
+  fetch(`/udon/api/reviews/${reviewId}/like/`, {
     method: 'POST',
     headers: {
       'X-CSRFToken': '{{ csrf_token }}',
@@ -813,7 +813,7 @@ function submitReviewComment(event, reviewId) {
 
   submitBtn.disabled = true;
 
-  fetch(`/api/reviews/${reviewId}/comments/`, {
+  fetch(`/udon/api/reviews/${reviewId}/comments/`, {
     method: 'POST',
     headers: {
       'X-CSRFToken': '{{ csrf_token }}',
@@ -887,7 +887,7 @@ function submitReviewComment(event, reviewId) {
 function deleteReviewComment(commentId, reviewId) {
   if (!confirm('このコメントを削除しますか？')) return;
 
-  fetch(`/api/comments/${commentId}/delete/`, {
+  fetch(`/udon/api/comments/${commentId}/delete/`, {
     method: 'POST',
     headers: {
       'X-CSRFToken': '{{ csrf_token }}',

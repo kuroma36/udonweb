@@ -1,0 +1,80 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}たびしお (Tabishio) - 旅のしおり＆スマート旅程ナビ{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'travel/img/tabishio_icon.svg' %}">
+  <link rel="stylesheet" href="{% static 'travel/css/travel.css' %}">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+  <!-- Travel App Header -->
+  <header class="travel-header">
+    <div class="header-container">
+      <a href="{% url 'travel:trip_list' %}" class="brand-logo" title="たびしお - 旅のしおりと旅をひとしお良くする">
+        <img src="{% static 'travel/img/tabishio_logo.svg' %}" alt="たびしお TABISHIO" class="brand-logo-img">
+      </a>
+
+      <div class="header-actions">
+        {% if request.user.is_authenticated %}
+        <div class="header-user-column">
+          <!-- 上段: ユーザプロフィール（右上） -->
+          <div class="header-user-top">
+            <a href="{% url 'udon:profile_edit' %}?next={{ request.path }}" class="user-profile-badge" title="プロフィール設定">
+              {% if request.user.profile.avatar_image %}
+                <img src="{{ request.user.profile.avatar_image.url }}" alt="{{ request.user.profile.nickname }}" class="user-avatar-circle">
+              {% else %}
+                <div class="user-avatar-circle" style="background-color: {{ request.user.profile.avatar_color|default:'#0284C7' }};">
+                  {{ request.user.profile.nickname|default:request.user.username|make_list|first|upper }}
+                </div>
+              {% endif %}
+              <span class="user-profile-name">{{ request.user.profile.nickname|default:request.user.username }}</span>
+            </a>
+            <a href="{% url 'travel:logout' %}" class="btn-action-outline btn-logout-compact" title="ログアウト">
+              ログアウト
+            </a>
+          </div>
+
+          <!-- 下段: 旅を計画ボタン（その下） -->
+          <div class="header-user-bottom">
+            <a href="{% url 'travel:trip_create' %}" class="btn-travel-new btn-header-plan">
+              <span>＋</span>
+              <span>旅を計画</span>
+            </a>
+          </div>
+        </div>
+        {% else %}
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <a href="{% url 'travel:trip_create' %}" class="btn-travel-new btn-header-plan">
+            <span>＋</span>
+            <span>旅を計画</span>
+          </a>
+          <a href="{% url 'travel:login' %}?next={{ request.path }}" class="btn-action-outline" style="color: #FFFFFF; border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.1);">ログイン</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="travel-main">
+    {% if messages %}
+    <div class="messages-container">
+      {% for message in messages %}
+      <div class="toast-alert {% if message.tags == 'error' %}toast-error{% else %}toast-success{% endif %}">
+        <span style="font-weight: 700; font-size: 1rem;">{% if message.tags == 'error' %}!{% else %}✓{% endif %}</span>
+        <span>{{ message }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

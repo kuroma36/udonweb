@@ -1,0 +1,461 @@
+{% extends 'travel/base.html' %}
+{% load static %}
+
+{% block title %}{{ trip.title }} - たびしお{% endblock %}
+
+{% block content %}
+<!-- Detail Header -->
+<div class="detail-trip-header">
+  <div class="detail-trip-info">
+    <div class="detail-trip-meta-row">
+      <a href="{% url 'travel:trip_list' %}" class="btn-action-outline btn-nowrap" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
+        ← 一覧
+      </a>
+      {% if trip.destination %}
+      <span class="destination-badge-pill">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+        <span>{{ trip.destination }}</span>
+      </span>
+      {% endif %}
+      <span class="trip-duration-text" style="display: inline-flex; align-items: center; gap: 4px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+        <span>{{ trip.duration_days }}日間の旅 ({{ trip.start_date|date:"Y/m/d" }} 〜 {{ trip.end_date|date:"m/d" }})</span>
+      </span>
+    </div>
+
+    <h1 class="trip-main-title">{{ trip.title }}</h1>
+
+    <!-- 参加メンバー一覧 -->
+    <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
+      <span style="font-size: 0.8rem; color: var(--text-muted); white-space: nowrap;">参加メンバー:</span>
+      <div class="member-avatar-stack" id="trip-members-list">
+        <!-- 作成者 -->
+        {% if trip.created_by.profile.avatar_image %}
+          <img src="{{ trip.created_by.profile.avatar_image.url }}" alt="{{ trip.created_by.profile.nickname }}" class="user-avatar-circle" title="{{ trip.created_by.profile.nickname }} (作成者)">
+        {% else %}
+          <div class="user-avatar-circle" style="background-color: {{ trip.created_by.profile.avatar_color|default:'#0284C7' }};" title="{{ trip.created_by.profile.nickname }} (作成者)">
+            {{ trip.created_by.profile.nickname|default:trip.created_by.username|make_list|first|upper }}
+          </div>
+        {% endif %}
+
+        <!-- メンバー -->
+        {% for m in trip.members.all %}
+          {% if m.profile.avatar_image %}
+            <img src="{{ m.profile.avatar_image.url }}" alt="{{ m.profile.nickname }}" class="user-avatar-circle" title="{{ m.profile.nickname }}">
+          {% else %}
+            <div class="user-avatar-circle" style="background-color: {{ m.profile.avatar_color|default:'#0284C7' }};" title="{{ m.profile.nickname }}">
+              {{ m.profile.nickname|default:m.username|make_list|first|upper }}
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+
+      {% if candidate_users %}
+      <button type="button" class="btn-action-outline btn-nowrap" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;" onclick="openAddMemberModal()">
+        + メンバー招待
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="detail-actions">
+    <a href="{% url 'travel:trip_guide' trip.id %}" class="btn-action-primary btn-nowrap" target="_blank" style="display: inline-flex; align-items: center; gap: 5px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+      <span>旅のしおり</span>
+    </a>
+    <a href="{% url 'travel:trip_edit' trip.id %}" class="btn-action-outline btn-nowrap" style="display: inline-flex; align-items: center; gap: 5px;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+      <span>日程・設定</span>
+    </a>
+    {% if trip.created_by == request.user or request.user.is_superuser %}
+    <form method="POST" action="{% url 'travel:trip_delete' trip.id %}" onsubmit="return confirm('本当にこの旅行を削除しますか？\n（関連するすべてのスポットや日程も削除されます）');" style="display: inline-flex;">
+      {% csrf_token %}
+      <button type="submit" class="btn-action-outline btn-nowrap" style="color: #EF4444; padding: 0.5rem 0.65rem; display: inline-flex; align-items: center; gap: 4px;" title="旅行を削除">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        <span>削除</span>
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Main Workspace (Map & Timeline) -->
+<div class="trip-workspace">
+  <!-- Left: Google Map -->
+  <div class="workspace-map-pane">
+    <div class="workspace-map-header">
+      <span class="map-header-title">
+        {{ active_day.title|default:"ルートマップ" }} ({{ stops|length }}箇所)
+      </span>
+      <div class="map-header-controls">
+        <button type="button" class="btn-action-outline btn-nowrap" style="padding: 0.2rem 0.65rem; font-size: 0.75rem; border-radius: var(--radius-full); cursor: pointer;" onclick="fitAllStopsOnMap()" title="全スポットが収まるように地図を表示">
+          全体表示
+        </button>
+        <span class="map-helper-tip">タップで前後ルート表示</span>
+      </div>
+    </div>
+    <div id="travel-map-container"></div>
+  </div>
+
+  <!-- Right: Day Tabs & Timeline -->
+  <div class="workspace-timeline-pane">
+    <!-- Day Selector Tabs -->
+    <div class="day-tabs-bar">
+      {% for day in days %}
+      <a href="?day={{ day.day_number }}" class="day-tab-btn {% if active_day.id == day.id %}is-active{% endif %}">
+        <span>Day {{ day.day_number }}</span>
+        {% if day.date %}<span style="font-size: 0.75rem; font-weight: normal; opacity: 0.8;">({{ day.date|date:"m/d" }})</span>{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+
+    <!-- Timeline Scroll Area -->
+    <div class="timeline-scroll-area" data-trip-id="{{ trip.id }}" data-day-id="{{ active_day.id }}">
+      <div class="timeline-stops-list" id="timeline-stops-container" data-trip-id="{{ trip.id }}" data-day-id="{{ active_day.id }}">
+        {% if stops %}
+        {% for stop in stops %}
+        <!-- Stop Card (クリックで前後のスポットを含めた縮尺に地図をズーム) -->
+        <div class="timeline-stop-card" data-stop-id="{{ stop.id }}" onclick="focusStopAndNeighbors({{ stop.id }})">
+          <div class="stop-card-top">
+            <div>
+              <span class="stop-order-number">{{ stop.order }}</span>
+              <h4 class="stop-name">{{ stop.name }}</h4>
+              <span class="category-badge badge-{{ stop.category }}">{{ stop.get_category_display }}</span>
+              {% if stop.paired_stop %}
+              <span class="badge-hotel-paired" title="{% if stop.day.day_number > stop.paired_stop.day.day_number %}前日（Day {{ stop.paired_stop.day.day_number }}）の宿泊先と連動中{% else %}翌日（Day {{ stop.paired_stop.day.day_number }}）のスタート地点と連動中{% endif %}">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                <span>{% if stop.day.day_number > stop.paired_stop.day.day_number %}Day {{ stop.paired_stop.day.day_number }}宿泊 連動{% else %}翌日スタート連動{% endif %}</span>
+              </span>
+              {% endif %}
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+              {% if stop.arrival_time %}
+              <span style="font-size: 0.75rem; font-weight: 700; color: var(--accent-sky); white-space: nowrap; display: inline-flex; align-items: center; gap: 3px;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                <span>{{ stop.arrival_time|time:"H:i" }}</span>
+              </span>
+              {% endif %}
+              <button type="button" onclick="event.stopPropagation(); deleteStop({{ stop.id }}, '{{ stop.name|escapejs }}', {% if stop.paired_stop %}true{% else %}false{% endif %})" 
+                      style="background: none; border: none; color: #94A3B8; cursor: pointer; padding: 0.2rem; font-size: 0.85rem;" title="削除">
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {% if stop.address %}
+          <div class="stop-address" style="display: flex; align-items: center; gap: 4px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+            <span>{{ stop.address }}</span>
+          </div>
+          {% endif %}
+
+          {% if stop.memo %}
+          <div class="stop-memo-box" style="display: flex; align-items: flex-start; gap: 6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+            <div>{{ stop.memo }}</div>
+          </div>
+          {% endif %}
+
+          <!-- Spot Detail & Photos link button / badge -->
+          <div class="stop-card-footer-action">
+            <a href="{% url 'travel:stop_detail' trip.id stop.id %}" onclick="event.stopPropagation();" class="btn-stop-detail-badge" title="スポットの詳細・クチコミ・写真を閲覧">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+              <span>詳細・クチコミ・写真</span>
+              {% if stop.photos.count %}
+              <span class="detail-badge-count">{{ stop.photos.count }}枚</span>
+              {% endif %}
+              <svg class="arrow-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </a>
+          </div>
+        </div>
+
+        <!-- Transport Connector to next stop (except for the last stop) -->
+        {% if not forloop.last %}
+        <div class="transport-connector" 
+             onclick="openTransportModal({{ stop.id }}, '{{ stop.transport_mode }}', '{{ stop.transport_departure_time|time:"H:i"|default:"" }}', '{{ stop.transport_arrival_time|time:"H:i"|default:"" }}', '{{ stop.transport_time_text|default:"" }}', '{{ stop.transport_memo|escapejs }}', '{{ stop.name|escapejs }}')">
+          <div class="transport-info-left">
+            <span class="transport-icon-badge" id="transport-icon-{{ stop.id }}">
+              {% if stop.transport_mode == 'car' %}🚗
+              {% elif stop.transport_mode == 'train' %}🚃
+              {% elif stop.transport_mode == 'flight' %}✈️
+              {% elif stop.transport_mode == 'bus' %}🚌
+              {% elif stop.transport_mode == 'walk' %}🚶
+              {% elif stop.transport_mode == 'boat' %}🚢
+              {% else %}🚗{% endif %}
+            </span>
+            <span class="transport-time-pill" id="transport-time-pill-{{ stop.id }}">
+              {% if stop.transport_time_text %}
+                {{ stop.transport_time_text }}
+              {% elif stop.transport_mode == 'car' %}
+                車移動を計算中...
+              {% else %}
+                移動設定
+              {% endif %}
+            </span>
+            {% if stop.transport_memo %}
+            <span class="transport-memo-pill" id="transport-memo-{{ stop.id }}">({{ stop.transport_memo }})</span>
+            {% endif %}
+          </div>
+          <span class="btn-transport-edit">設定・ダイヤ</span>
+        </div>
+        {% endif %}
+
+        {% endfor %}
+        {% else %}
+        <!-- Empty Stops Placeholder -->
+        <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+          <div style="font-size: 1.2rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.5rem;">[ スポット未登録 ]</div>
+          <div style="font-weight: 700; margin-bottom: 0.25rem;">まだスポットが登録されていません</div>
+          <p style="font-size: 0.85rem; margin-bottom: 1rem;">下の「+ スポットを追加」ボタンから観光地やホテルを検索して追加してみましょう！</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Bottom Add Button -->
+    <div class="timeline-bottom-actions">
+      <button type="button" class="btn-action-primary" style="width: 100%; justify-content: center; padding: 0.75rem;" onclick="openAddStopModal()">
+        <span>+</span>
+        <span>スポットを追加する</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ==========================================================================
+     Modal 1: Add Stop Modal (Google Places Autocomplete)
+     ========================================================================== -->
+<div class="modal-overlay" id="add-stop-modal">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <h3 class="modal-title">スポットを追加</h3>
+      <button type="button" onclick="closeAddStopModal()" style="background: none; border: none; font-size: 1.25rem; cursor: pointer;">✕</button>
+    </div>
+
+    <form id="add-stop-form">
+      <div class="modal-body">
+        <!-- Places Autocomplete Search Box -->
+        <div class="form-group">
+          <label class="form-label">スポット・場所を検索（Google Places）</label>
+          <div class="places-search-wrapper">
+            <span class="places-search-icon" style="display: flex; align-items: center;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+            </span>
+            <input type="text" id="places-autocomplete-input" class="places-search-input" placeholder="{% if trip.destination %}{{ trip.destination }}の{% endif %}観光地名、ホテル名、駅名、住所などを入力...">
+          </div>
+        </div>
+
+        <div id="selected-place-preview" style="display: none; padding: 0.75rem; background: #E0F2FE; border-radius: var(--radius-md); margin-bottom: 1rem;"></div>
+
+        <!-- Hidden Coordinates & Place Data -->
+        <input type="hidden" name="trip_id" value="{{ trip.id }}">
+        <input type="hidden" name="day_id" value="{{ active_day.id }}">
+        <input type="hidden" name="name" required>
+        <input type="hidden" name="address">
+        <input type="hidden" name="lat">
+        <input type="hidden" name="lng">
+        <input type="hidden" name="place_id">
+        <input type="hidden" name="photo_url">
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;" class="form-group">
+          <div>
+            <label class="form-label">カテゴリ</label>
+            <select name="category" id="stop-category-select" class="form-select" onchange="handleCategoryChange(this.value)">
+              <option value="sightseeing">観光・絶景</option>
+              <option value="gourmet">グルメ・カフェ</option>
+              <option value="hotel">宿泊（ホテル・宿）</option>
+              <option value="activity">アクティビティ・体験</option>
+              <option value="transport">交通拠点（駅・空港）</option>
+              <option value="other">その他</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">到着予定時刻</label>
+            <input type="time" name="arrival_time" class="form-input">
+          </div>
+        </div>
+
+        <!-- Hotel Sync Options (宿泊選択時のみ表示) -->
+        <div id="hotel-sync-options" style="display: none; margin-bottom: 1rem; padding: 0.75rem 1rem; background: #FAF5FF; border: 1px solid #E9D5FF; border-radius: var(--radius-md);">
+          {% if active_day.day_number < trip.duration_days %}
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: #6D28D9; margin: 0;">
+            <input type="checkbox" name="sync_next_day" id="sync-next-day-checkbox" value="true" checked style="accent-color: #7C3AED; width: 16px; height: 16px;">
+            <span>翌日（Day {{ active_day.day_number|add:1 }}）のスタート地点にも自動登録する</span>
+          </label>
+          <div style="font-size: 0.75rem; color: #7E22CE; margin-top: 4px; margin-left: 24px; line-height: 1.4;">
+            翌日の朝の出発地（1番目）として同じ宿が自動設定されます。どちらかを削除した場合は連動して両方削除されます。
+          </div>
+          {% else %}
+          <div style="font-size: 0.8rem; color: #6B7280; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <span>最終日のため、翌日のスタート地点登録はありません。</span>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">メモ・予約情報</label>
+          <textarea name="memo" class="form-textarea" rows="2" placeholder="予約番号、チェックイン時間、見どころなど"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-action-outline" onclick="closeAddStopModal()">キャンセル</button>
+        <button type="submit" class="btn-action-primary">日程に追加する</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==========================================================================
+     Modal 2: Transport Settings Modal (Plan 1 Implementation)
+     ========================================================================== -->
+<div class="modal-overlay" id="transport-modal">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <h3 class="modal-title">移動手段・ダイヤ設定</h3>
+      <button type="button" onclick="closeTransportModal()" style="background: none; border: none; font-size: 1.25rem; cursor: pointer;">✕</button>
+    </div>
+
+    <form id="transport-settings-form" onsubmit="event.preventDefault(); saveTransportSettings();">
+      <input type="hidden" name="trip_id" value="{{ trip.id }}">
+      <div class="modal-body">
+        <!-- Mode Select -->
+        <div class="form-group">
+          <label class="form-label">移動手段</label>
+          <select name="transport_mode" id="transport-mode-select" class="form-select">
+            <option value="car">🚗 車 / レンタカー</option>
+            <option value="train">🚃 電車 / 新幹線</option>
+            <option value="flight">✈️ 飛行機</option>
+            <option value="bus">🚌 バス</option>
+            <option value="walk">🚶 徒歩</option>
+            <option value="boat">🚢 船・フェリー</option>
+          </select>
+          <div id="car-auto-hint" style="display: none; font-size: 0.8rem; color: #0369A1; background: #F0F9FF; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid #BAE6FD; margin-top: 0.5rem; line-height: 1.4;">
+            🚗 車の場合はGoogleマップのルート検索から所要時間を自動計算して表示します。（特定の予定時刻がある場合のみ出発・到着時刻をご指定ください）
+          </div>
+        </div>
+
+        <!-- Schedule Times for Plan 1 -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;" class="form-group">
+          <div>
+            <label class="form-label">出発時刻</label>
+            <input type="time" name="transport_departure_time" id="transport-dep-time" class="form-input">
+          </div>
+          <div>
+            <label class="form-label">到着時刻</label>
+            <input type="time" name="transport_arrival_time" id="transport-arr-time" class="form-input">
+          </div>
+        </div>
+
+        <!-- Live Duration Auto-Calculation Result -->
+        <div id="transport-duration-preview" style="display: none; padding: 0.6rem 0.85rem; background: #F0FDF4; color: #166534; font-weight: 700; border-radius: var(--radius-md); font-size: 0.85rem; margin-bottom: 1rem; border: 1px solid #BBF7D0;">
+        </div>
+        <input type="hidden" name="transport_time_text" id="transport-time-text-input">
+
+        <!-- Helper: Open Google Transit Search -->
+        <div id="transit-helper-section" style="margin-bottom: 1rem;">
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem;">
+            乗換ダイヤをお調べになる場合はこちら：
+          </div>
+          <button type="button" id="btn-open-transit-search" class="btn-action-outline" style="font-size: 0.8rem; width: 100%; justify-content: center;">
+            Google乗換案内でダイヤを検索
+          </button>
+        </div>
+
+        <!-- Flight / Train Details Memo -->
+        <div class="form-group">
+          <label class="form-label">便名・列車名・座席・予約メモ</label>
+          <input type="text" name="transport_memo" id="transport-memo-input" class="form-input" 
+                 placeholder="例: ANA 55便 24A席 / のぞみ15号 7号車12A">
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-action-outline" onclick="closeTransportModal()">キャンセル</button>
+        <button type="submit" class="btn-action-primary">ダイヤ設定を保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==========================================================================
+     Modal 3: Add Member Modal
+     ========================================================================== -->
+{% if candidate_users %}
+<div class="modal-overlay" id="add-member-modal">
+  <div class="modal-dialog" style="max-width: 440px;">
+    <div class="modal-header">
+      <h3 class="modal-title">メンバー招待</h3>
+      <button type="button" onclick="closeAddMemberModal()" style="background: none; border: none; font-size: 1.25rem; cursor: pointer;">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+        招待されたメンバーは、この旅行のスポット追加や並び替えを共同編集できるようになります。
+      </p>
+      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+        {% for u in candidate_users %}
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0.85rem; background: var(--bg-main); border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <div class="user-avatar-circle" style="background-color: {{ u.profile.avatar_color|default:'#0284C7' }}; width: 32px; height: 32px; font-size: 0.8rem;">
+              {{ u.profile.nickname|default:u.username|make_list|first|upper }}
+            </div>
+            <span style="font-weight: 600; font-size: 0.9rem;">{{ u.profile.nickname|default:u.username }}</span>
+          </div>
+          <button type="button" class="btn-action-primary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;" onclick="addMemberToTrip({{ u.id }})">
+            招待
+          </button>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<style>
+.pac-container {
+  z-index: 99999 !important;
+  pointer-events: auto !important;
+}
+</style>
+
+<script>
+window.TRAVEL_CONFIG = {
+  tripId: {{ trip.id }},
+  dayId: {{ active_day.id|default:"null" }},
+  activeDayNumber: {{ active_day.day_number|default:1 }},
+  destination: "{{ trip.destination|escapejs }}"
+};
+window.TRAVEL_STOPS_DATA = {{ stops_json|safe }};
+
+function openAddMemberModal() {
+  document.getElementById('add-member-modal')?.classList.add('is-active');
+}
+function closeAddMemberModal() {
+  document.getElementById('add-member-modal')?.classList.remove('is-active');
+}
+
+function addMemberToTrip(userId) {
+  const formData = new FormData();
+  formData.append('user_id', userId);
+
+  fetch('/travel/api/trips/{{ trip.id }}/add-member/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrfToken() },
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.status === 'ok') {
+      window.location.reload();
+    }
+  });
+}
+</script>
+
+<!-- Scripts -->
+<script src="{% static 'travel/js/travel_timeline.js' %}"></script>
+<script src="{% static 'travel/js/travel_map.js' %}"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAPS_API_KEY }}&libraries=places&language=ja&region=JP&callback=initTravelMap" async defer></script>
+{% endblock %}

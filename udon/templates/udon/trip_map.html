@@ -648,7 +648,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       searchTimeout = setTimeout(() => {
-        fetch(`/api/shops/search/?q=${encodeURIComponent(query)}`)
+        fetch(`/udon/api/shops/search/?q=${encodeURIComponent(query)}`)
           .then(res => res.json())
           .then(data => {
             if (data.status === 'ok' && data.results.length > 0) {
@@ -762,7 +762,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     const csrftoken = getCookie('csrftoken') || document.querySelector('[name=csrfmiddlewaretoken]')?.value;
 
-    fetch(`/api/trips/${tripId}/add-stop/`, {
+    fetch(`/udon/api/trips/${tripId}/add-stop/`, {
       method: 'POST',
       headers: { 'X-CSRFToken': csrftoken },
       body: formData

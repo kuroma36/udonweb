@@ -47,6 +47,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'udon',
+    'travel.apps.TravelConfig',
+    'pomodoro.apps.PomodoroConfig',
 ]
 
 MIDDLEWARE = [
@@ -133,9 +135,9 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = 'home'
-LOGOUT_REDIRECT_URL = 'home'
+LOGIN_URL = 'udon:login'
+LOGIN_REDIRECT_URL = 'udon:home'
+LOGOUT_REDIRECT_URL = 'udon:home'
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration

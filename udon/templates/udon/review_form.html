@@ -204,8 +204,8 @@ function deleteUserPhoto(photoType, photoId, btnEl) {
   btnEl.style.opacity = '0.5';
 
   const url = (photoType === 'review')
-    ? `/api/reviews/${photoId}/delete-photo/`
-    : `/api/photos/${photoId}/delete/`;
+    ? `/udon/api/reviews/${photoId}/delete-photo/`
+    : `/udon/api/photos/${photoId}/delete/`;
 
   fetch(url, {
     method: 'POST',

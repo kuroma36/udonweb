@@ -166,7 +166,7 @@
     const container = document.getElementById('notification-items-container');
     if (!container) return;
 
-    fetch('/api/notifications/')
+    fetch("{% url 'udon:api_get_notifications' %}")
       .then(res => res.json())
       .then(data => {
         if (data.status === 'ok') {
@@ -222,7 +222,7 @@
   };
 
   window.handleNotificationClick = function(id, targetUrl) {
-    fetch(`/api/notifications/${id}/read/`, {
+    fetch(`/udon/api/notifications/${id}/read/`, {
       method: 'POST',
       headers: {
         'X-CSRFToken': getCsrfTokenFromCookie(),
@@ -245,7 +245,7 @@
   };
 
   window.markAllNotificationsRead = function() {
-    fetch('/api/notifications/read-all/', {
+    fetch("{% url 'udon:api_mark_all_notifications_read' %}", {
       method: 'POST',
       headers: {
         'X-CSRFToken': getCsrfTokenFromCookie(),
@@ -299,7 +299,7 @@
   // Periodic poll for unread notifications every 60 seconds
   setInterval(() => {
     if (document.visibilityState === 'visible') {
-      fetch('/api/notifications/')
+      fetch("{% url 'udon:api_get_notifications' %}")
         .then(res => res.json())
         .then(data => {
           if (data.status === 'ok') {

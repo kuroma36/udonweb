@@ -327,7 +327,7 @@ function initGooglePlacesSearch() {
       if (userRatingsTotal) formData.append('user_ratings_total', userRatingsTotal);
       formData.append('travel_time', '車で18分');
 
-      fetch(`/api/trips/${tripId}/add-stop/`, {
+      fetch(`/udon/api/trips/${tripId}/add-stop/`, {
         method: 'POST',
         headers: { 'X-CSRFToken': csrftoken },
         body: formData
@@ -351,7 +351,7 @@ function initGooglePlacesSearch() {
       if (rating) formData.append('rating', rating);
       if (userRatingsTotal) formData.append('user_ratings_total', userRatingsTotal);
 
-      fetch('/api/shops/create-from-place/', {
+      fetch('/udon/api/shops/create-from-place/', {
         method: 'POST',
         headers: { 'X-CSRFToken': csrftoken },
         body: formData
@@ -457,7 +457,7 @@ function appendMemberAvatar(name, color, initial, avatarImg) {
     formData.append('avatar_icon', '🧑');
     const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-    fetch(`/api/trips/${tripId}/add-member/`, {
+    fetch(`/udon/api/trips/${tripId}/add-member/`, {
       method: 'POST',
       headers: { 'X-CSRFToken': csrftoken },
       body: formData
@@ -529,7 +529,7 @@ function removeMember(btnEl, memberId, memberName) {
       return;
     }
     const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-    fetch(`/api/trips/${tripId}/members/${memberId}/delete/`, {
+    fetch(`/udon/api/trips/${tripId}/members/${memberId}/delete/`, {
       method: 'POST',
       headers: { 'X-CSRFToken': csrftoken }
     })
@@ -569,7 +569,7 @@ function addSelectedShop() {
     formData.append('travel_time', '車で18分');
     const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-    fetch(`/api/trips/${tripId}/add-stop/`, {
+    fetch(`/udon/api/trips/${tripId}/add-stop/`, {
       method: 'POST',
       headers: { 'X-CSRFToken': csrftoken },
       body: formData

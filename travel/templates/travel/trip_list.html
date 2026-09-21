@@ -1,0 +1,137 @@
+{% extends 'travel/base.html' %}
+{% load static %}
+
+{% block title %}マイトリップ一覧 - たびしお (TABISHIO){% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="trips-hero">
+  <h1 class="hero-title">どこへ行こう？ 次の旅をデザインしよう</h1>
+  <p class="hero-subtitle">
+    複数日のルートマップ作成、電車やフライトのダイヤ管理、仲間とのリアルタイム共同編集で、理想の旅行計画としおりを簡単に作れます。
+  </p>
+</section>
+
+<!-- Upcoming Trips Section -->
+<section style="margin-bottom: 2.5rem;">
+  <div class="section-heading">
+    <h2 class="section-title">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-sky)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+      <span>計画中・近日中の旅</span>
+      <span style="font-size: 0.85rem; font-weight: normal; color: var(--text-muted);">({{ upcoming_trips|length }}件)</span>
+    </h2>
+  </div>
+
+  {% if upcoming_trips %}
+  <div class="trips-grid">
+    {% for trip in upcoming_trips %}
+    <a href="{% url 'travel:trip_detail' trip.id %}" class="trip-card">
+      <div class="trip-card-cover cover-{{ trip.cover_preset }}" {% if trip.cover_image %}style="background-image: url('{{ trip.cover_image.url }}');"{% endif %}>
+        <div class="cover-overlay"></div>
+        <div class="card-badge-days">{{ trip.duration_days }}日間の旅</div>
+        {% if trip.destination %}
+        <div class="card-destination" style="display: inline-flex; align-items: center; gap: 4px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+          <span>{{ trip.destination }}</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="trip-card-body">
+        <h3 class="trip-card-title">{{ trip.title }}</h3>
+        
+        <div class="trip-card-meta">
+          <span style="display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            <span>{{ trip.start_date|date:"Y/m/d" }} 〜 {{ trip.end_date|date:"m/d" }}</span>
+          </span>
+        </div>
+
+        {% if trip.description %}
+        <p style="font-size: 0.85rem; color: var(--text-sub); margin-bottom: 1rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+          {{ trip.description }}
+        </p>
+        {% endif %}
+
+        <div class="trip-card-members">
+          <div class="member-avatar-stack">
+            <!-- 作成者 -->
+            {% if trip.created_by.profile.avatar_image %}
+              <img src="{{ trip.created_by.profile.avatar_image.url }}" alt="{{ trip.created_by.profile.nickname }}" class="user-avatar-circle" title="{{ trip.created_by.profile.nickname }} (作成者)">
+            {% else %}
+              <div class="user-avatar-circle" style="background-color: {{ trip.created_by.profile.avatar_color|default:'#0284C7' }};" title="{{ trip.created_by.profile.nickname }} (作成者)">
+                {{ trip.created_by.profile.nickname|default:trip.created_by.username|make_list|first|upper }}
+              </div>
+            {% endif %}
+
+            <!-- 参加メンバー -->
+            {% for member in trip.members.all %}
+              {% if member.profile.avatar_image %}
+                <img src="{{ member.profile.avatar_image.url }}" alt="{{ member.profile.nickname }}" class="user-avatar-circle" title="{{ member.profile.nickname }}">
+              {% else %}
+                <div class="user-avatar-circle" style="background-color: {{ member.profile.avatar_color|default:'#0284C7' }};" title="{{ member.profile.nickname }}">
+                  {{ member.profile.nickname|default:member.username|make_list|first|upper }}
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+          <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.6rem;">
+            {{ trip.members.count|add:1 }}名のメンバー
+          </span>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div style="text-align: center; padding: 3rem 1.5rem; background: #FFFFFF; border-radius: var(--radius-lg); border: 1px dashed var(--border-light); margin-bottom: 2rem;">
+    <div style="margin-bottom: 0.75rem; color: var(--accent-sky);">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+    </div>
+    <div style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem;">現在計画中の旅行はありません</div>
+    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">「新しい旅を計画」ボタンから、週末ドライブや複数日の旅行計画を立ててみましょう！</p>
+    <a href="{% url 'travel:trip_create' %}" class="btn-travel-new">＋ 旅程を作成する</a>
+  </div>
+  {% endif %}
+</section>
+
+<!-- Past Trips Section -->
+{% if past_trips %}
+<section>
+  <div class="section-heading">
+    <h2 class="section-title">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+      <span>完了した思い出の旅</span>
+      <span style="font-size: 0.85rem; font-weight: normal; color: var(--text-muted);">({{ past_trips|length }}件)</span>
+    </h2>
+  </div>
+
+  <div class="trips-grid">
+    {% for trip in past_trips %}
+    <a href="{% url 'travel:trip_detail' trip.id %}" class="trip-card" style="opacity: 0.9;">
+      <div class="trip-card-cover cover-{{ trip.cover_preset }}" {% if trip.cover_image %}style="background-image: url('{{ trip.cover_image.url }}');"{% endif %}>
+        <div class="cover-overlay"></div>
+        <div class="card-badge-days">{{ trip.duration_days }}日間の旅</div>
+        {% if trip.destination %}
+        <div class="card-destination" style="display: inline-flex; align-items: center; gap: 4px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+          <span>{{ trip.destination }}</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="trip-card-body">
+        <h3 class="trip-card-title">{{ trip.title }}</h3>
+        <div class="trip-card-meta">
+          <span style="display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            <span>{{ trip.start_date|date:"Y/m/d" }} 〜 {{ trip.end_date|date:"m/d" }}</span>
+          </span>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

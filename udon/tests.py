@@ -1110,7 +1110,28 @@ class UdonAppTestCase(TestCase):
         self.assertIn('recent_u1', profile_users)
         self.assertLess(profile_users.index('recent_u2'), profile_users.index('recent_u1'))
 
+    def test_root_redirect_and_udon_prefix(self):
+        # 1. Root '/' should redirect to '/udon/' (302)
+        res_root = self.client.get('/')
+        self.assertEqual(res_root.status_code, 302)
+        self.assertEqual(res_root.headers.get('Location'), '/udon/')
 
+        # 2. Unauthenticated '/udon/' redirects to '/udon/login/'
+        res_udon_anon = self.client.get('/udon/')
+        self.assertEqual(res_udon_anon.status_code, 302)
+        self.assertEqual(res_udon_anon.headers.get('Location'), '/udon/login/')
 
+        # 3. Authenticated '/udon/' redirects to trip_map or trip_list
+        self.client.force_login(self.user)
+        res_udon_auth = self.client.get('/udon/')
+        self.assertEqual(res_udon_auth.status_code, 302)
+        self.assertEqual(res_udon_auth.headers.get('Location'), f'/udon/trips/{self.trip.id}/')
 
+        # 4. '/udon/shops/' should return 200
+        res_shops = self.client.get('/udon/shops/')
+        self.assertEqual(res_shops.status_code, 200)
 
+        # 5. Legacy /api/... should redirect to /udon/api/...
+        res_legacy_api = self.client.get('/api/shops/search/?q=うどん')
+        self.assertEqual(res_legacy_api.status_code, 302)
+        self.assertTrue(res_legacy_api.headers.get('Location').startswith('/udon/api/'))
