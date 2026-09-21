@@ -1280,8 +1280,15 @@
         }
 
         // YouTube auto-pause on break
+        // 時報正報音（ポーーーーーーン / 約2.2秒減衰）が鳴り響いてから動画を停止
         if (STATE.config.autoSyncYouTube && STATE.yt.player && STATE.yt.isReady) {
-          try { STATE.yt.player.pauseVideo(); } catch(e) {}
+          setTimeout(() => {
+            try {
+              if (STATE.mode !== 'work') {
+                STATE.yt.player.pauseVideo();
+              }
+            } catch(e) {}
+          }, 2300);
         }
 
       } else {
