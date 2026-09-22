@@ -25,6 +25,7 @@ urlpatterns = [
     path('udon/', include('udon.urls')),
     path('travel/', include('travel.urls')),
     path('pomodoro/', include('pomodoro.urls')),
+    path('foodscan/', include('foodscan.urls')),
     path('', RedirectView.as_view(url='/udon/', permanent=False)),
     # 旧APIリクエストの互換用リダイレクト
     re_path(r'^api/(?P<path>.*)$', RedirectView.as_view(url='/udon/api/%(path)s', permanent=False)),
