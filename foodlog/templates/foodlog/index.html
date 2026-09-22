@@ -731,7 +731,7 @@
           if (!p.calories || p.calories === 0) {
             const estRes = await fetch(`/foodlog/api/estimate/?name=${encodeURIComponent(p.name)}`);
             const estData = await estRes.json();
-            if (estData.success && estData.estimate.calories > 0) {
+            if (estData.success && estData.estimate.found) {
               p.calories = estData.estimate.calories;
               p.protein = estData.estimate.protein;
               p.fat = estData.estimate.fat;
@@ -975,7 +975,7 @@
             // 一致しない場合は推計候補を表示！
             const estRes = await fetch(`/foodlog/api/estimate/?name=${encodeURIComponent(q)}`);
             const estData = await estRes.json();
-            if (estData.success && estData.estimate.calories > 0) {
+            if (estData.success && estData.estimate.found) {
               resultsEl.classList.remove('hidden');
               presetEl.classList.add('hidden');
               const est = estData.estimate;
