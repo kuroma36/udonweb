@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>FoodLog - 食事管理＆栄養ダッシュボード</title>
+  <meta name="description" content="毎日の食事をバーコードや定番料理からサクサク記録し、あすけんのようにカロリーやPFCバランスを100点満点で判定する食事管理Webアプリ">
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- html5-qrcode -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans JP"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* アニメーションとスクロールバー */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    #reader video {
+      border-radius: 1rem;
+      object-fit: cover !important;
+      width: 100% !important;
+    }
+    #reader { border: none !important; }
+    @keyframes pulse-subtle {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.85; }
+    }
+    .pulse-subtle { animation: pulse-subtle 3s infinite ease-in-out; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased pb-28">
+
+  <!-- ヘッダー -->
+  <header class="sticky top-0 z-30 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3">
+    <div class="max-w-md mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-2.5">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+          <i class="fa-solid fa-apple-whole text-white text-base"></i>
+        </div>
+        <div>
+          <h1 class="text-base font-extrabold tracking-tight text-white flex items-center gap-1.5">
+            FoodLog
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">あすけん風</span>
+          </h1>
+          <p class="text-[10px] text-slate-400">食事管理＆栄養ダッシュボード</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-1.5">
+        <button onclick="openProfileModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs transition-colors" title="目標設定">
+          <i class="fa-solid fa-sliders"></i>
+        </button>
+        <a href="/udon/" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-1">
+          <i class="fa-solid fa-house text-slate-500"></i>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- メインコンテナ -->
+  <main class="max-w-md mx-auto px-4 pt-3.5 space-y-4">
+
+    <!-- 日付セレクター -->
+    <section class="bg-slate-900/80 border border-slate-800 rounded-2xl p-2.5 flex items-center justify-between shadow-lg">
+      <a href="?date={{ prev_date }}" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-800 flex items-center justify-center text-slate-300 text-xs transition-colors">
+        <i class="fa-solid fa-chevron-left"></i>
+      </a>
+
+      <div class="flex items-center gap-2">
+        <input type="date" id="date-picker" value="{{ target_date }}" onchange="location.href='?date=' + this.value" 
+               class="bg-transparent text-sm font-bold text-white text-center cursor-pointer focus:outline-none font-mono">
+        {% if is_today %}
+        <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">今日</span>
+        {% else %}
+        <a href="?date={{ today_date }}" class="text-[10px] text-slate-400 hover:text-white underline">今日に戻る</a>
+        {% endif %}
+      </div>
+
+      <a href="?date={{ next_date }}" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-800 flex items-center justify-center text-slate-300 text-xs transition-colors">
+        <i class="fa-solid fa-chevron-right"></i>
+      </a>
+    </section>
+
+    <!-- あすけん風 栄養サマリー & スコアカード -->
+    <section class="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-850 border border-slate-800 rounded-3xl p-5 shadow-2xl relative overflow-hidden">
+      <!-- 背景グロー -->
+      <div class="absolute -right-10 -top-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <!-- スコアバッジ＆タイトル -->
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <span class="text-[11px] font-bold text-slate-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-chart-line text-emerald-400"></i>
+            本日の健康スコア
+          </span>
+          <div class="flex items-baseline gap-1 mt-0.5">
+            <span id="score-display" class="text-3xl font-black text-white tracking-tight">{{ summary.score }}</span>
+            <span class="text-xs text-slate-400 font-bold">/ 100点</span>
+          </div>
+        </div>
+        <!-- 総合判定スタンプ -->
+        <div id="score-badge" class="px-3.5 py-1.5 rounded-2xl bg-{{ summary.badge_color }}-500/20 border border-{{ summary.badge_color }}-500/30 text-{{ summary.badge_color }}-300 text-xs font-black shadow-inner flex items-center gap-1.5">
+          {% if summary.score >= 85 %}
+          <i class="fa-solid fa-crown text-amber-400"></i> 素晴らしい
+          {% elif summary.score >= 70 %}
+          <i class="fa-solid fa-thumbs-up text-blue-400"></i> 良好
+          {% elif summary.score >= 50 %}
+          <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> 改善余地あり
+          {% else %}
+          <i class="fa-solid fa-bell text-rose-400"></i> 記録しよう
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- カロリーメーター（目標 vs 現在 vs 残り） -->
+      <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 mb-4">
+        <div class="flex items-center justify-between text-xs mb-2">
+          <span class="text-slate-400 font-semibold">摂取カロリー</span>
+          <div class="text-right">
+            <span class="text-xs text-slate-400">目標: <b class="text-white">{{ summary.target_calories|floatformat:0 }}</b> kcal</span>
+          </div>
+        </div>
+
+        <div class="flex items-baseline justify-between mb-2">
+          <div class="flex items-baseline gap-1">
+            <span id="total-calories-display" class="text-2xl font-black text-amber-400">{{ summary.total_calories|floatformat:0 }}</span>
+            <span class="text-xs text-slate-400">kcal</span>
+          </div>
+          <div class="text-right text-xs">
+            {% if summary.remaining_calories >= 0 %}
+            <span class="text-emerald-400 font-bold">残り {{ summary.remaining_calories|floatformat:0 }} kcal</span>
+            {% else %}
+            <span class="text-rose-400 font-bold">{{ summary.remaining_calories|stringformat:"+d"|slice:"1:" }} kcal 超過</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- カロリープログレスバー -->
+        {% widthratio summary.total_calories summary.target_calories 100 as cal_pct %}
+        <div class="h-3 w-full bg-slate-800 rounded-full overflow-hidden flex">
+          <div id="cal-progress-bar" 
+               class="h-full {% if summary.total_calories > summary.target_calories %}bg-rose-500{% else %}bg-gradient-to-r from-emerald-500 to-amber-400{% endif %} transition-all duration-500" 
+               style="width: {% if cal_pct > 100 %}100{% else %}{{ cal_pct }}{% endif %}%"></div>
+        </div>
+      </div>
+
+      <!-- PFCバランスバー -->
+      <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 space-y-2.5 mb-4">
+        <div class="flex items-center justify-between text-xs">
+          <span class="font-bold text-slate-300 flex items-center gap-1.5">
+            <i class="fa-solid fa-chart-pie text-emerald-400"></i>
+            PFCバランス
+          </span>
+          <span id="pfc-ratio-labels" class="text-[11px] text-slate-400 font-mono">
+            P:{{ summary.pfc_ratios.p }}% F:{{ summary.pfc_ratios.f }}% C:{{ summary.pfc_ratios.c }}%
+          </span>
+        </div>
+
+        <!-- 3色プログレスバー -->
+        <div class="h-2.5 w-full bg-slate-800 rounded-full overflow-hidden flex">
+          <div id="pfc-bar-p" class="bg-blue-500 h-full transition-all duration-500" style="width: {{ summary.pfc_ratios.p }}%"></div>
+          <div id="pfc-bar-f" class="bg-rose-500 h-full transition-all duration-500" style="width: {{ summary.pfc_ratios.f }}%"></div>
+          <div id="pfc-bar-c" class="bg-emerald-500 h-full transition-all duration-500" style="width: {{ summary.pfc_ratios.c }}%"></div>
+        </div>
+
+        <!-- グラム数値グリッド -->
+        <div class="grid grid-cols-4 gap-1.5 pt-1 text-center">
+          <div class="bg-slate-900/80 rounded-xl p-2 border border-blue-500/20">
+            <div class="text-[10px] text-blue-400 font-bold">たんぱく質</div>
+            <div class="text-xs font-black text-white mt-0.5"><span id="val-protein">{{ summary.total_protein }}</span>g</div>
+          </div>
+          <div class="bg-slate-900/80 rounded-xl p-2 border border-rose-500/20">
+            <div class="text-[10px] text-rose-400 font-bold">脂質</div>
+            <div class="text-xs font-black text-white mt-0.5"><span id="val-fat">{{ summary.total_fat }}</span>g</div>
+          </div>
+          <div class="bg-slate-900/80 rounded-xl p-2 border border-emerald-500/20">
+            <div class="text-[10px] text-emerald-400 font-bold">炭水化物</div>
+            <div class="text-xs font-black text-white mt-0.5"><span id="val-carbs">{{ summary.total_carbs }}</span>g</div>
+          </div>
+          <div class="bg-slate-900/80 rounded-xl p-2 border border-slate-700">
+            <div class="text-[10px] text-slate-400 font-bold">食塩相当量</div>
+            <div class="text-xs font-black text-white mt-0.5"><span id="val-salt">{{ summary.total_salt }}</span>g</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- あすけん風 ワンポイントアドバイス -->
+      <div id="advice-box" class="bg-emerald-950/30 border border-emerald-800/50 rounded-2xl p-3.5 flex items-start space-x-3">
+        <div class="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center flex-shrink-0 text-sm mt-0.5">
+          <i class="fa-solid fa-robot"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <h4 class="text-xs font-bold text-emerald-300">管理栄養士アドバイス</h4>
+          <p id="advice-text" class="text-[11px] text-slate-300 leading-relaxed mt-1">
+            {{ summary.advice }}
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 食事区分カード（朝・昼・夕・間食） -->
+    <section class="space-y-3">
+      
+      <!-- 4大食事ループ -->
+      {% for m_key, meal in summary.meals.items %}
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-md transition-all">
+        <!-- 食事ヘッダー -->
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
+          <div class="flex items-center space-x-2">
+            <div class="w-7 h-7 rounded-lg bg-{{ meal.color }}-500/20 text-{{ meal.color }}-400 flex items-center justify-center text-xs">
+              <i class="fa-solid {{ meal.icon }}"></i>
+            </div>
+            <div>
+              <h3 class="text-xs font-extrabold text-white">{{ meal.label }}</h3>
+              <p class="text-[10px] text-slate-400">{{ meal.items|length }}品目</p>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span class="text-xs font-black text-amber-400">{{ meal.calories|floatformat:0 }} <span class="text-[10px] font-normal text-slate-400">kcal</span></span>
+            <button onclick="openAddMealModal('{{ m_key }}', '{{ meal.label }}')" 
+                    class="px-2.5 py-1 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center gap-1 transition-colors">
+              <i class="fa-solid fa-plus text-[10px]"></i>
+              <span>追加</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 食べた品目リスト -->
+        <div class="divide-y divide-slate-800/60 pt-1">
+          {% for item in meal.items %}
+          <div class="py-2.5 flex items-center justify-between group">
+            <div class="flex items-center space-x-2.5 min-w-0 flex-1">
+              {% if item.image_url %}
+              <img src="{{ item.image_url }}" alt="" class="w-8 h-8 rounded-lg object-contain bg-white/5 p-0.5 flex-shrink-0">
+              {% else %}
+              <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-500 text-xs flex-shrink-0">
+                <i class="fa-solid fa-utensils"></i>
+              </div>
+              {% endif %}
+              <div class="min-w-0 flex-1">
+                <p class="text-xs font-bold text-white truncate">{{ item.name }}</p>
+                <div class="flex items-center gap-2 text-[10px] text-slate-400">
+                  <span>{{ item.serving_amount }}{{ item.serving_unit }}</span>
+                  <span>|</span>
+                  <span class="text-blue-400">P:{{ item.protein }}g</span>
+                  <span class="text-rose-400">F:{{ item.fat }}g</span>
+                  <span class="text-emerald-400">C:{{ item.carbohydrates }}g</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center space-x-2.5 ml-2">
+              <span class="text-xs font-bold text-amber-300 font-mono">{{ item.calories|floatformat:0 }}kcal</span>
+              <button onclick="deleteMealItem({{ item.id }})" class="text-slate-600 hover:text-rose-400 text-xs p-1 transition-colors" title="削除">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+          {% empty %}
+          <div class="py-3 text-center text-slate-500 text-xs">
+            まだ記録がありません
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+
+    </section>
+
+    <!-- フッターリンク -->
+    <div class="text-center pt-2">
+      <a href="/foodscan/" class="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 border border-emerald-800/60 px-4 py-2 rounded-xl transition-all">
+        <i class="fa-solid fa-barcode"></i>
+        <span>FoodScan (バーコード単体リーダー) を開く</span>
+      </a>
+    </div>
+
+  </main>
+
+  <!-- =============================== -->
+  <!-- 食事追加モーダル (4タブ構成) -->
+  <!-- =============================== -->
+  <div id="modal-add-meal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border-t sm:border border-slate-700 w-full max-w-md rounded-t-3xl sm:rounded-3xl max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col">
+      
+      <!-- モーダルヘッダー -->
+      <div class="sticky top-0 bg-slate-900/95 backdrop-blur-md px-5 py-3 border-b border-slate-800 flex items-center justify-between z-10">
+        <div>
+          <h3 class="text-sm font-extrabold text-white flex items-center gap-2">
+            <span id="modal-meal-label" class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 text-xs">朝食</span>
+            食事を追加
+          </h3>
+        </div>
+        <button onclick="closeAddMealModal()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- 入力モードタブ -->
+      <div class="px-4 pt-3 border-b border-slate-800 flex gap-2 overflow-x-auto">
+        <button onclick="switchTab('barcode')" id="tab-btn-barcode" class="tab-btn pb-2 text-xs font-bold text-emerald-400 border-b-2 border-emerald-500 flex items-center gap-1.5 flex-shrink-0">
+          <i class="fa-solid fa-barcode"></i> バーコード
+        </button>
+        <button onclick="switchTab('search')" id="tab-btn-search" class="tab-btn pb-2 text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1.5 flex-shrink-0">
+          <i class="fa-solid fa-magnifying-glass"></i> 定番・検索
+        </button>
+        <button onclick="switchTab('udon')" id="tab-btn-udon" class="tab-btn pb-2 text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1.5 flex-shrink-0">
+          <i class="fa-solid fa-bowl-food text-amber-400"></i> うどん巡礼
+        </button>
+        <button onclick="switchTab('quick')" id="tab-btn-quick" class="tab-btn pb-2 text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1.5 flex-shrink-0">
+          <i class="fa-solid fa-pen"></i> クイック
+        </button>
+      </div>
+
+      <!-- モーダル本体 -->
+      <div class="p-4 space-y-4 flex-1">
+        
+        <!-- タブ1: バーコードスキャナー -->
+        <div id="tab-content-barcode" class="space-y-3">
+          <div class="text-center space-y-1">
+            <p class="text-xs text-slate-300">市販食品のJANコードをカメラにかざしてください</p>
+          </div>
+
+          <div id="barcode-scanner-area" class="relative w-full aspect-square rounded-2xl overflow-hidden bg-black border-2 border-emerald-500/50 shadow-inner">
+            <div id="reader-modal" class="w-full h-full"></div>
+          </div>
+
+          <button id="btn-modal-scan-start" onclick="startModalScanner()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30">
+            <i class="fa-solid fa-camera"></i>
+            <span>カメラを起動する</span>
+          </button>
+          
+          <button id="btn-modal-scan-stop" onclick="stopModalScanner()" class="hidden w-full py-2.5 bg-slate-800 text-slate-300 font-semibold rounded-xl text-xs">
+            カメラを停止
+          </button>
+
+          <!-- スキャン結果プレビュー＆追加フォーム -->
+          <div id="scanned-preview-card" class="hidden bg-slate-800 border border-slate-700 rounded-2xl p-4 space-y-3">
+            <div class="flex items-center space-x-3">
+              <img id="prev-img" src="" alt="" class="w-12 h-12 object-contain rounded-lg bg-white/5 p-1 flex-shrink-0">
+              <div class="min-w-0 flex-1">
+                <h4 id="prev-name" class="text-xs font-bold text-white truncate"></h4>
+                <p id="prev-cal" class="text-xs font-black text-amber-400 mt-0.5"></p>
+              </div>
+            </div>
+
+            <!-- 数量スライダー -->
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-400 font-semibold">分量</span>
+                <span id="prev-serving-label" class="text-emerald-400 font-bold">1.0 人前</span>
+              </div>
+              <input type="range" id="prev-amount-range" min="0.25" max="3.0" step="0.25" value="1.0" 
+                     oninput="updateServingCalc()" class="w-full accent-emerald-500">
+            </div>
+
+            <button onclick="commitScannedItem()" class="w-full py-3 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold rounded-xl text-xs shadow-lg shadow-emerald-600/30">
+              この食事を登録する
+            </button>
+          </div>
+        </div>
+
+        <!-- タブ2: 定番料理・食品検索 -->
+        <div id="tab-content-search" class="hidden space-y-3">
+          <div class="relative">
+            <input type="text" id="food-search-input" oninput="debounceSearchFood()" placeholder="料理名・食品名を検索 (例: ご飯、味噌汁、唐揚げ)" 
+                   class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+            <i class="fa-solid fa-magnifying-glass absolute right-3 top-3 text-slate-500 text-xs"></i>
+          </div>
+
+          <!-- 検索結果リスト -->
+          <div id="search-results-list" class="max-h-52 overflow-y-auto space-y-1.5 hidden"></div>
+
+          <!-- 定番プリセットカテゴリ -->
+          <div id="default-preset-section" class="space-y-2">
+            <span class="text-[11px] font-bold text-slate-400">定番メニューから選ぶ</span>
+            <div class="grid grid-cols-2 gap-2">
+              {% for f in staples %}
+              <button onclick="selectPresetFood({{ f|safe }})" class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700/80 text-left transition-all active:scale-[0.98]">
+                <p class="text-xs font-bold text-white truncate">{{ f.name }}</p>
+                <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1">
+                  <span class="text-amber-400 font-bold">{{ f.calories }}kcal</span>
+                  <span class="text-slate-500">{{ f.serving_size }}</span>
+                </div>
+              </button>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- タブ3: うどん巡礼連携 -->
+        <div id="tab-content-udon" class="hidden space-y-3">
+          <div class="bg-amber-950/30 border border-amber-800/50 rounded-2xl p-3 text-xs text-amber-300 flex items-center gap-2">
+            <i class="fa-solid fa-bowl-food text-amber-400 text-base"></i>
+            <span>うどん巡礼アプリで訪問・実食したうどんをワンタップで取り込めます！</span>
+          </div>
+
+          <div id="udon-recent-list" class="space-y-2">
+            <div class="text-center py-4 text-xs text-slate-500">
+              うどん巡礼の記録を取得中...
+            </div>
+          </div>
+        </div>
+
+        <!-- タブ4: クイック手動入力 -->
+        <div id="tab-content-quick" class="hidden space-y-3">
+          <form onsubmit="submitQuickMeal(event)" class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">料理名・メニュー名 <span class="text-rose-400">*</span></label>
+              <input type="text" id="quick-name" required placeholder="例: カツカレー、手作りオムライス" 
+                     class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none">
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">カロリー (kcal) <span class="text-rose-400">*</span></label>
+                <input type="number" step="1" id="quick-calories" required placeholder="例: 750" 
+                       class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none font-bold text-amber-400">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">食塩相当量 (g)</label>
+                <input type="number" step="0.1" id="quick-salt" placeholder="例: 2.5" 
+                       class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <label class="block text-[10px] font-semibold text-blue-400 mb-1">たんぱく質(g)</label>
+                <input type="number" step="0.1" id="quick-p" placeholder="0.0" 
+                       class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:border-emerald-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold text-rose-400 mb-1">脂質(g)</label>
+                <input type="number" step="0.1" id="quick-f" placeholder="0.0" 
+                       class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:border-emerald-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold text-emerald-400 mb-1">炭水化物(g)</label>
+                <input type="number" step="0.1" id="quick-c" placeholder="0.0" 
+                       class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:border-emerald-500 focus:outline-none">
+              </div>
+            </div>
+
+            <button type="submit" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-emerald-600/30">
+              クイック登録
+            </button>
+          </form>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- =============================== -->
+  <!-- 目標設定モーダル -->
+  <!-- =============================== -->
+  <div id="modal-profile" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border-t sm:border border-slate-700 w-full max-w-md rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-y-auto shadow-2xl p-5 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-emerald-400"></i>
+          栄養目標＆身体設定
+        </h3>
+        <button onclick="closeProfileModal()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-xs">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form onsubmit="submitProfile(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">ニックネーム</label>
+          <input type="text" id="prof-nickname" value="{{ profile.nickname }}" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">性別</label>
+            <select id="prof-gender" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+              <option value="male" {% if profile.gender == 'male' %}selected{% endif %}>男性</option>
+              <option value="female" {% if profile.gender == 'female' %}selected{% endif %}>女性</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">生年 (西暦)</label>
+            <input type="number" id="prof-birth-year" value="{{ profile.birth_year }}" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="block text-[10px] font-semibold text-slate-400 mb-1">身長(cm)</label>
+            <input type="number" step="0.1" id="prof-height" value="{{ profile.height }}" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white">
+          </div>
+          <div>
+            <label class="block text-[10px] font-semibold text-slate-400 mb-1">現在体重(kg)</label>
+            <input type="number" step="0.1" id="prof-current-weight" value="{{ profile.current_weight }}" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white">
+          </div>
+          <div>
+            <label class="block text-[10px] font-semibold text-slate-400 mb-1">目標体重(kg)</label>
+            <input type="number" step="0.1" id="prof-target-weight" value="{{ profile.target_weight }}" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">活動レベル</label>
+          <select id="prof-activity-level" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+            <option value="sedentary" {% if profile.activity_level == 'sedentary' %}selected{% endif %}>低い (デスクワーク・運動少なめ)</option>
+            <option value="moderate" {% if profile.activity_level == 'moderate' %}selected{% endif %}>普通 (立ち仕事・軽い運動あり)</option>
+            <option value="active" {% if profile.activity_level == 'active' %}selected{% endif %}>高い (活発な運動・肉体労働)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">ダイエット目標</label>
+          <select id="prof-goal-type" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+            <option value="maintain" {% if profile.goal_type == 'maintain' %}selected{% endif %}>現状維持 (体重キープ)</option>
+            <option value="lose_slow" {% if profile.goal_type == 'lose_slow' %}selected{% endif %}>ゆるやか減量 (-0.5〜1kg/月)</option>
+            <option value="lose_fast" {% if profile.goal_type == 'lose_fast' %}selected{% endif %}>しっかり減量 (-1〜2kg/月)</option>
+            <option value="muscle" {% if profile.goal_type == 'muscle' %}selected{% endif %}>筋肉増量 (+300kcal)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">目標摂取カロリー (kcal)</label>
+          <input type="number" step="1" id="prof-target-calories" value="{{ profile.target_calories|floatformat:0 }}" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold text-amber-400">
+        </div>
+
+        <button type="submit" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-emerald-600/30">
+          設定を保存する
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- スクリプト -->
+  <script>
+    let currentMealType = 'lunch';
+    let currentDate = '{{ target_date }}';
+    let html5QrCodeModal = null;
+    let isModalScanning = false;
+    let pendingScannedProduct = null;
+    let searchDebounceTimer = null;
+
+    // モーダル開閉
+    function openAddMealModal(mealType, label) {
+      currentMealType = mealType;
+      document.getElementById('modal-meal-label').textContent = label;
+      document.getElementById('modal-add-meal').classList.remove('hidden');
+      switchTab('barcode');
+    }
+
+    function closeAddMealModal() {
+      stopModalScanner();
+      document.getElementById('modal-add-meal').classList.add('hidden');
+    }
+
+    function openProfileModal() {
+      document.getElementById('modal-profile').classList.remove('hidden');
+    }
+
+    function closeProfileModal() {
+      document.getElementById('modal-profile').classList.add('hidden');
+    }
+
+    // タブ切替
+    function switchTab(tab) {
+      ['barcode', 'search', 'udon', 'quick'].forEach(t => {
+        document.getElementById(`tab-content-${t}`).classList.add('hidden');
+        const btn = document.getElementById(`tab-btn-${t}`);
+        btn.classList.remove('text-emerald-400', 'border-b-2', 'border-emerald-500');
+        btn.classList.add('text-slate-400');
+      });
+
+      document.getElementById(`tab-content-${tab}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`tab-btn-${tab}`);
+      activeBtn.classList.remove('text-slate-400');
+      activeBtn.classList.add('text-emerald-400', 'border-b-2', 'border-emerald-500');
+
+      if (tab === 'udon') {
+        loadRecentUdon();
+      }
+    }
+
+    // バーコードスキャナー制御
+    async function startModalScanner() {
+      const btnStart = document.getElementById('btn-modal-scan-start');
+      const btnStop = document.getElementById('btn-modal-scan-stop');
+      btnStart.classList.add('hidden');
+      btnStop.classList.remove('hidden');
+
+      if (!html5QrCodeModal) {
+        html5QrCodeModal = new Html5Qrcode("reader-modal");
+      }
+
+      const config = {
+        fps: 15,
+        qrbox: { width: 220, height: 160 },
+        aspectRatio: 1.0,
+      };
+
+      try {
+        await html5QrCodeModal.start(
+          { facingMode: "environment" },
+          config,
+          onScanSuccessInModal,
+          () => {}
+        );
+        isModalScanning = true;
+      } catch (err) {
+        alert("カメラの起動に失敗しました: " + err);
+        stopModalScanner();
+      }
+    }
+
+    async function stopModalScanner() {
+      if (html5QrCodeModal && isModalScanning) {
+        try { await html5QrCodeModal.stop(); } catch (e) {}
+        isModalScanning = false;
+      }
+      document.getElementById('btn-modal-scan-start').classList.remove('hidden');
+      document.getElementById('btn-modal-scan-stop').classList.add('hidden');
+    }
+
+    // スキャン成功時
+    async function onScanSuccessInModal(code) {
+      stopModalScanner();
+      try {
+        const res = await fetch(`/foodscan/api/lookup/?barcode=${encodeURIComponent(code)}`);
+        const data = await res.json();
+        if (data.found && data.product) {
+          pendingScannedProduct = data.product;
+          showScannedPreview(data.product);
+        } else {
+          alert(`コード「${code}」の食品データは見つかりませんでした。クイック登録タブから手動登録をお試しください。`);
+        }
+      } catch (e) {
+        alert("照会通信エラー: " + e);
+      }
+    }
+
+    function showScannedPreview(p) {
+      const card = document.getElementById('scanned-preview-card');
+      card.classList.remove('hidden');
+      document.getElementById('prev-name').textContent = p.name;
+      document.getElementById('prev-cal').textContent = `${p.calories || 0} kcal (${p.serving_size || '100g'})`;
+      const img = document.getElementById('prev-img');
+      img.src = p.image_url || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2364748b"%3E%3Cpath d="M18 20V4H6v16h12Z"/%3E%3C/svg%3E';
+      document.getElementById('prev-amount-range').value = 1.0;
+      updateServingCalc();
+    }
+
+    function updateServingCalc() {
+      if (!pendingScannedProduct) return;
+      const amount = parseFloat(document.getElementById('prev-amount-range').value);
+      document.getElementById('prev-serving-label').textContent = `${amount.toFixed(2)} 人前`;
+      const cal = Math.round((pendingScannedProduct.calories || 0) * amount);
+      document.getElementById('prev-cal').textContent = `${cal} kcal (×${amount.toFixed(2)})`;
+    }
+
+    // スキャン品目を登録
+    async function commitScannedItem() {
+      if (!pendingScannedProduct) return;
+      const amount = parseFloat(document.getElementById('prev-amount-range').value);
+      const payload = {
+        date: currentDate,
+        meal_type: currentMealType,
+        barcode: pendingScannedProduct.barcode,
+        name: pendingScannedProduct.name,
+        serving_amount: amount,
+        serving_unit: '人前',
+        calories: pendingScannedProduct.calories || 0,
+        protein: pendingScannedProduct.protein || 0,
+        fat: pendingScannedProduct.fat || 0,
+        carbohydrates: pendingScannedProduct.carbohydrates || 0,
+        salt: pendingScannedProduct.salt || 0,
+        image_url: pendingScannedProduct.image_url || '',
+      };
+
+      await postAddMeal(payload);
+    }
+
+    // 定番料理プリセット選択
+    async function selectPresetFood(f) {
+      const payload = {
+        date: currentDate,
+        meal_type: currentMealType,
+        name: f.name,
+        serving_amount: 1.0,
+        serving_unit: f.serving_size,
+        calories: f.calories,
+        protein: f.protein,
+        fat: f.fat,
+        carbohydrates: f.carbohydrates,
+        salt: f.salt,
+      };
+      await postAddMeal(payload);
+    }
+
+    // クイック手動登録
+    async function submitQuickMeal(e) {
+      e.preventDefault();
+      const payload = {
+        date: currentDate,
+        meal_type: currentMealType,
+        name: document.getElementById('quick-name').value.trim(),
+        calories: parseFloat(document.getElementById('quick-calories').value),
+        salt: parseFloat(document.getElementById('quick-salt').value || 0),
+        protein: parseFloat(document.getElementById('quick-p').value || 0),
+        fat: parseFloat(document.getElementById('quick-f').value || 0),
+        carbohydrates: parseFloat(document.getElementById('quick-c').value || 0),
+      };
+      await postAddMeal(payload);
+    }
+
+    // 讃岐うどん巡礼データの読み込み
+    async function loadRecentUdon() {
+      const listEl = document.getElementById('udon-recent-list');
+      try {
+        const res = await fetch('/foodlog/api/udon/recent/');
+        const data = await res.json();
+        if (data.items && data.items.length > 0) {
+          listEl.innerHTML = '';
+          data.items.forEach(u => {
+            const btn = document.createElement('button');
+            btn.className = "w-full p-3 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 text-left flex items-center justify-between";
+            btn.onclick = () => selectPresetFood({
+              name: `${u.shop_name} (${u.menu_name})`,
+              calories: u.calories,
+              protein: u.protein,
+              fat: u.fat,
+              carbohydrates: u.carbohydrates,
+              salt: u.salt,
+              serving_size: '1杯',
+            });
+            btn.innerHTML = `
+              <div>
+                <p class="text-xs font-bold text-white">${u.shop_name}</p>
+                <p class="text-[11px] text-emerald-400 font-semibold">${u.menu_name}</p>
+                <p class="text-[10px] text-slate-500">${u.visited_at} 訪問</p>
+              </div>
+              <div class="text-right">
+                <span class="text-xs font-black text-amber-400 font-mono">${u.calories}kcal</span>
+                <span class="block text-[10px] text-emerald-300 font-semibold mt-0.5">取り込む ➔</span>
+              </div>
+            `;
+            listEl.appendChild(btn);
+          });
+        } else {
+          listEl.innerHTML = '<div class="text-center py-4 text-xs text-slate-500">讃岐うどんアプリの記録がありません</div>';
+        }
+      } catch (e) {
+        listEl.innerHTML = '<div class="text-center py-4 text-xs text-rose-400">データ取得に失敗しました</div>';
+      }
+    }
+
+    // 食品検索インクリメンタル
+    function debounceSearchFood() {
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(async () => {
+        const q = document.getElementById('food-search-input').value.trim();
+        const resultsEl = document.getElementById('search-results-list');
+        const presetEl = document.getElementById('default-preset-section');
+
+        if (!q) {
+          resultsEl.classList.add('hidden');
+          presetEl.classList.remove('hidden');
+          return;
+        }
+
+        try {
+          const res = await fetch(`/foodlog/api/search/?q=${encodeURIComponent(q)}`);
+          const data = await res.json();
+          resultsEl.innerHTML = '';
+          if (data.results && data.results.length > 0) {
+            resultsEl.classList.remove('hidden');
+            presetEl.classList.add('hidden');
+            data.results.forEach(item => {
+              const div = document.createElement('div');
+              div.className = "p-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 flex items-center justify-between cursor-pointer";
+              div.onclick = () => selectPresetFood(item);
+              div.innerHTML = `
+                <div class="min-w-0 flex-1">
+                  <p class="text-xs font-bold text-white truncate">${item.name}</p>
+                  <p class="text-[10px] text-slate-400">${item.category} | ${item.serving_size}</p>
+                </div>
+                <div class="text-right ml-2">
+                  <span class="text-xs font-bold text-amber-400">${item.calories}kcal</span>
+                </div>
+              `;
+              resultsEl.appendChild(div);
+            });
+          } else {
+            resultsEl.classList.remove('hidden');
+            presetEl.classList.add('hidden');
+            resultsEl.innerHTML = '<div class="text-center py-3 text-xs text-slate-500">一致する食品が見つかりません</div>';
+          }
+        } catch (e) {}
+      }, 300);
+    }
+
+    // 食事追加API実行 & 画面リロードなし即時更新
+    async function postAddMeal(payload) {
+      try {
+        const res = await fetch('/foodlog/api/meal/add/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeAddMealModal();
+          location.reload(); // 最新サマリーとリスト反映
+        } else {
+          alert(data.error || "登録に失敗しました");
+        }
+      } catch (e) {
+        alert("通信エラー: " + e);
+      }
+    }
+
+    // 食事削除API実行
+    async function deleteMealItem(itemId) {
+      if (!confirm("この品目を削除しますか？")) return;
+      try {
+        const res = await fetch('/foodlog/api/meal/delete/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item_id: itemId }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          location.reload();
+        } else {
+          alert(data.error || "削除失敗");
+        }
+      } catch (e) {
+        alert("削除エラー: " + e);
+      }
+    }
+
+    // 目標設定保存
+    async function submitProfile(e) {
+      e.preventDefault();
+      const payload = {
+        nickname: document.getElementById('prof-nickname').value,
+        gender: document.getElementById('prof-gender').value,
+        birth_year: document.getElementById('prof-birth-year').value,
+        height: document.getElementById('prof-height').value,
+        current_weight: document.getElementById('prof-current-weight').value,
+        target_weight: document.getElementById('prof-target-weight').value,
+        activity_level: document.getElementById('prof-activity-level').value,
+        goal_type: document.getElementById('prof-goal-type').value,
+        target_calories: document.getElementById('prof-target-calories').value,
+      };
+
+      try {
+        const res = await fetch('/foodlog/api/profile/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert("目標設定を更新しました！");
+          closeProfileModal();
+          location.reload();
+        } else {
+          alert(data.error || "更新失敗");
+        }
+      } catch (e) {
+        alert("更新エラー: " + e);
+      }
+    }
+  </script>
+</body>
+</html>

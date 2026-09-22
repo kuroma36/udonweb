@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'travel.apps.TravelConfig',
     'pomodoro.apps.PomodoroConfig',
     'foodscan.apps.FoodscanConfig',
+    'foodlog.apps.FoodlogConfig',
 ]
 
 MIDDLEWARE = [
