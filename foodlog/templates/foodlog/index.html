@@ -23,34 +23,19 @@
           fontFamily: {
             sans: ['"Noto Sans JP"', 'sans-serif'],
           },
-          colors: {
-            brand: {
-              50: '#ecfdf5',
-              100: '#d1fae5',
-              500: '#10b981',
-              600: '#059669',
-              700: '#047857',
-            }
-          }
         }
       }
     }
   </script>
   <style>
-    /* アニメーションとスクロールバー */
     ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-    #reader video {
+    #reader-modal video {
       border-radius: 1rem;
       object-fit: cover !important;
       width: 100% !important;
     }
-    #reader { border: none !important; }
-    @keyframes pulse-subtle {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.85; }
-    }
-    .pulse-subtle { animation: pulse-subtle 3s infinite ease-in-out; }
+    #reader-modal { border: none !important; }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased pb-28">
@@ -107,7 +92,6 @@
 
     <!-- あすけん風 栄養サマリー & スコアカード -->
     <section class="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-850 border border-slate-800 rounded-3xl p-5 shadow-2xl relative overflow-hidden">
-      <!-- 背景グロー -->
       <div class="absolute -right-10 -top-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
       <!-- スコアバッジ＆タイトル -->
@@ -122,7 +106,6 @@
             <span class="text-xs text-slate-400 font-bold">/ 100点</span>
           </div>
         </div>
-        <!-- 総合判定スタンプ -->
         <div id="score-badge" class="px-3.5 py-1.5 rounded-2xl bg-{{ summary.badge_color }}-500/20 border border-{{ summary.badge_color }}-500/30 text-{{ summary.badge_color }}-300 text-xs font-black shadow-inner flex items-center gap-1.5">
           {% if summary.score >= 85 %}
           <i class="fa-solid fa-crown text-amber-400"></i> 素晴らしい
@@ -136,7 +119,7 @@
         </div>
       </div>
 
-      <!-- カロリーメーター（目標 vs 現在 vs 残り） -->
+      <!-- カロリーメーター -->
       <div class="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 mb-4">
         <div class="flex items-center justify-between text-xs mb-2">
           <span class="text-slate-400 font-semibold">摂取カロリー</span>
@@ -159,7 +142,6 @@
           </div>
         </div>
 
-        <!-- カロリープログレスバー -->
         {% widthratio summary.total_calories summary.target_calories 100 as cal_pct %}
         <div class="h-3 w-full bg-slate-800 rounded-full overflow-hidden flex">
           <div id="cal-progress-bar" 
@@ -180,14 +162,12 @@
           </span>
         </div>
 
-        <!-- 3色プログレスバー -->
         <div class="h-2.5 w-full bg-slate-800 rounded-full overflow-hidden flex">
           <div id="pfc-bar-p" class="bg-blue-500 h-full transition-all duration-500" style="width: {{ summary.pfc_ratios.p }}%"></div>
           <div id="pfc-bar-f" class="bg-rose-500 h-full transition-all duration-500" style="width: {{ summary.pfc_ratios.f }}%"></div>
           <div id="pfc-bar-c" class="bg-emerald-500 h-full transition-all duration-500" style="width: {{ summary.pfc_ratios.c }}%"></div>
         </div>
 
-        <!-- グラム数値グリッド -->
         <div class="grid grid-cols-4 gap-1.5 pt-1 text-center">
           <div class="bg-slate-900/80 rounded-xl p-2 border border-blue-500/20">
             <div class="text-[10px] text-blue-400 font-bold">たんぱく質</div>
@@ -224,11 +204,8 @@
 
     <!-- 食事区分カード（朝・昼・夕・間食） -->
     <section class="space-y-3">
-      
-      <!-- 4大食事ループ -->
       {% for m_key, meal in summary.meals.items %}
       <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-md transition-all">
-        <!-- 食事ヘッダー -->
         <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
           <div class="flex items-center space-x-2">
             <div class="w-7 h-7 rounded-lg bg-{{ meal.color }}-500/20 text-{{ meal.color }}-400 flex items-center justify-center text-xs">
@@ -249,7 +226,6 @@
           </div>
         </div>
 
-        <!-- 食べた品目リスト -->
         <div class="divide-y divide-slate-800/60 pt-1">
           {% for item in meal.items %}
           <div class="py-2.5 flex items-center justify-between group">
@@ -288,7 +264,6 @@
         </div>
       </div>
       {% endfor %}
-
     </section>
 
     <!-- フッターリンク -->
@@ -328,11 +303,11 @@
         <button onclick="switchTab('search')" id="tab-btn-search" class="tab-btn pb-2 text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1.5 flex-shrink-0">
           <i class="fa-solid fa-magnifying-glass"></i> 定番・検索
         </button>
+        <button onclick="switchTab('quick')" id="tab-btn-quick" class="tab-btn pb-2 text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1.5 flex-shrink-0">
+          <i class="fa-solid fa-bolt text-amber-400"></i> 推計入力
+        </button>
         <button onclick="switchTab('udon')" id="tab-btn-udon" class="tab-btn pb-2 text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1.5 flex-shrink-0">
           <i class="fa-solid fa-bowl-food text-amber-400"></i> うどん巡礼
-        </button>
-        <button onclick="switchTab('quick')" id="tab-btn-quick" class="tab-btn pb-2 text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1.5 flex-shrink-0">
-          <i class="fa-solid fa-pen"></i> クイック
         </button>
       </div>
 
@@ -365,10 +340,10 @@
               <div class="min-w-0 flex-1">
                 <h4 id="prev-name" class="text-xs font-bold text-white truncate"></h4>
                 <p id="prev-cal" class="text-xs font-black text-amber-400 mt-0.5"></p>
+                <p id="prev-note" class="text-[10px] text-emerald-400 mt-0.5 hidden"></p>
               </div>
             </div>
 
-            <!-- 数量スライダー -->
             <div>
               <div class="flex justify-between text-xs mb-1">
                 <span class="text-slate-400 font-semibold">分量</span>
@@ -384,55 +359,137 @@
           </div>
         </div>
 
-        <!-- タブ2: 定番料理・食品検索 -->
+        <!-- タブ2: 定番料理・食品検索 (カテゴリ切替対応) -->
         <div id="tab-content-search" class="hidden space-y-3">
           <div class="relative">
-            <input type="text" id="food-search-input" oninput="debounceSearchFood()" placeholder="料理名・食品名を検索 (例: ご飯、味噌汁、唐揚げ)" 
+            <input type="text" id="food-search-input" oninput="debounceSearchFood()" placeholder="料理名・食品名を検索 (例: 豚肉、ツナマヨ、牛丼、唐揚げ)" 
                    class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500">
             <i class="fa-solid fa-magnifying-glass absolute right-3 top-3 text-slate-500 text-xs"></i>
           </div>
 
-          <!-- 検索結果リスト -->
-          <div id="search-results-list" class="max-h-52 overflow-y-auto space-y-1.5 hidden"></div>
+          <!-- カテゴリピッカーボタン -->
+          <div class="flex gap-1.5 overflow-x-auto pb-1">
+            <button onclick="filterPresetCategory('all')" class="cat-filter-btn px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-600 text-white flex-shrink-0" data-cat="all">すべて</button>
+            <button onclick="filterPresetCategory('convenience')" class="cat-filter-btn px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 flex-shrink-0" data-cat="convenience">🏪 コンビニ</button>
+            <button onclick="filterPresetCategory('fastfood')" class="cat-filter-btn px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 flex-shrink-0" data-cat="fastfood">🍔 外食・牛丼</button>
+            <button onclick="filterPresetCategory('staple')" class="cat-filter-btn px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 flex-shrink-0" data-cat="staple">🍚 主食</button>
+            <button onclick="filterPresetCategory('main')" class="cat-filter-btn px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 flex-shrink-0" data-cat="main">🥩 主菜・肉魚</button>
+            <button onclick="filterPresetCategory('side')" class="cat-filter-btn px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 flex-shrink-0" data-cat="side">🥗 副菜・野菜</button>
+            <button onclick="filterPresetCategory('udon')" class="cat-filter-btn px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 flex-shrink-0" data-cat="udon">🍜 讃岐うどん</button>
+          </div>
 
-          <!-- 定番プリセットカテゴリ -->
-          <div id="default-preset-section" class="space-y-2">
-            <span class="text-[11px] font-bold text-slate-400">定番メニューから選ぶ</span>
-            <div class="grid grid-cols-2 gap-2">
-              {% for f in staples %}
-              <button onclick="selectPresetFood({{ f|safe }})" class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700/80 text-left transition-all active:scale-[0.98]">
-                <p class="text-xs font-bold text-white truncate">{{ f.name }}</p>
-                <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1">
-                  <span class="text-amber-400 font-bold">{{ f.calories }}kcal</span>
-                  <span class="text-slate-500">{{ f.serving_size }}</span>
+          <!-- 検索結果リスト -->
+          <div id="search-results-list" class="max-h-60 overflow-y-auto space-y-1.5 hidden"></div>
+
+          <!-- 定番プリセット一覧 -->
+          <div id="default-preset-section" class="max-h-60 overflow-y-auto space-y-1.5">
+            <!-- コンビニ -->
+            <div class="cat-group cat-convenience space-y-1.5">
+              {% for f in convenience_foods %}
+              <div onclick="selectPresetFood({{ f|safe }})" class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700/80 flex items-center justify-between cursor-pointer active:scale-[0.99]">
+                <div class="min-w-0 flex-1">
+                  <p class="text-xs font-bold text-white truncate">{{ f.name }}</p>
+                  <p class="text-[10px] text-slate-400">{{ f.serving_size }} | P:{{ f.protein }}g F:{{ f.fat }}g C:{{ f.carbohydrates }}g</p>
                 </div>
-              </button>
+                <span class="text-xs font-bold text-amber-400 ml-2">{{ f.calories }}kcal</span>
+              </div>
+              {% endfor %}
+            </div>
+
+            <!-- 外食 -->
+            <div class="cat-group cat-fastfood space-y-1.5">
+              {% for f in fastfood_foods %}
+              <div onclick="selectPresetFood({{ f|safe }})" class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700/80 flex items-center justify-between cursor-pointer active:scale-[0.99]">
+                <div class="min-w-0 flex-1">
+                  <p class="text-xs font-bold text-white truncate">{{ f.name }}</p>
+                  <p class="text-[10px] text-slate-400">{{ f.serving_size }} | P:{{ f.protein }}g F:{{ f.fat }}g C:{{ f.carbohydrates }}g</p>
+                </div>
+                <span class="text-xs font-bold text-amber-400 ml-2">{{ f.calories }}kcal</span>
+              </div>
+              {% endfor %}
+            </div>
+
+            <!-- 主食 -->
+            <div class="cat-group cat-staple space-y-1.5">
+              {% for f in staples %}
+              <div onclick="selectPresetFood({{ f|safe }})" class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700/80 flex items-center justify-between cursor-pointer active:scale-[0.99]">
+                <div class="min-w-0 flex-1">
+                  <p class="text-xs font-bold text-white truncate">{{ f.name }}</p>
+                  <p class="text-[10px] text-slate-400">{{ f.serving_size }} | P:{{ f.protein }}g F:{{ f.fat }}g C:{{ f.carbohydrates }}g</p>
+                </div>
+                <span class="text-xs font-bold text-amber-400 ml-2">{{ f.calories }}kcal</span>
+              </div>
+              {% endfor %}
+            </div>
+
+            <!-- 主菜 -->
+            <div class="cat-group cat-main space-y-1.5">
+              {% for f in mains %}
+              <div onclick="selectPresetFood({{ f|safe }})" class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700/80 flex items-center justify-between cursor-pointer active:scale-[0.99]">
+                <div class="min-w-0 flex-1">
+                  <p class="text-xs font-bold text-white truncate">{{ f.name }}</p>
+                  <p class="text-[10px] text-slate-400">{{ f.serving_size }} | P:{{ f.protein }}g F:{{ f.fat }}g C:{{ f.carbohydrates }}g</p>
+                </div>
+                <span class="text-xs font-bold text-amber-400 ml-2">{{ f.calories }}kcal</span>
+              </div>
+              {% endfor %}
+            </div>
+
+            <!-- 副菜 -->
+            <div class="cat-group cat-side space-y-1.5">
+              {% for f in sides %}
+              <div onclick="selectPresetFood({{ f|safe }})" class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700/80 flex items-center justify-between cursor-pointer active:scale-[0.99]">
+                <div class="min-w-0 flex-1">
+                  <p class="text-xs font-bold text-white truncate">{{ f.name }}</p>
+                  <p class="text-[10px] text-slate-400">{{ f.serving_size }} | P:{{ f.protein }}g F:{{ f.fat }}g C:{{ f.carbohydrates }}g</p>
+                </div>
+                <span class="text-xs font-bold text-amber-400 ml-2">{{ f.calories }}kcal</span>
+              </div>
+              {% endfor %}
+            </div>
+
+            <!-- うどん -->
+            <div class="cat-group cat-udon space-y-1.5">
+              {% for f in udons %}
+              <div onclick="selectPresetFood({{ f|safe }})" class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700/80 flex items-center justify-between cursor-pointer active:scale-[0.99]">
+                <div class="min-w-0 flex-1">
+                  <p class="text-xs font-bold text-white truncate">{{ f.name }}</p>
+                  <p class="text-[10px] text-slate-400">{{ f.serving_size }} | P:{{ f.protein }}g F:{{ f.fat }}g C:{{ f.carbohydrates }}g</p>
+                </div>
+                <span class="text-xs font-bold text-amber-400 ml-2">{{ f.calories }}kcal</span>
+              </div>
               {% endfor %}
             </div>
           </div>
         </div>
 
-        <!-- タブ3: うどん巡礼連携 -->
-        <div id="tab-content-udon" class="hidden space-y-3">
-          <div class="bg-amber-950/30 border border-amber-800/50 rounded-2xl p-3 text-xs text-amber-300 flex items-center gap-2">
-            <i class="fa-solid fa-bowl-food text-amber-400 text-base"></i>
-            <span>うどん巡礼アプリで訪問・実食したうどんをワンタップで取り込めます！</span>
-          </div>
-
-          <div id="udon-recent-list" class="space-y-2">
-            <div class="text-center py-4 text-xs text-slate-500">
-              うどん巡礼の記録を取得中...
-            </div>
-          </div>
-        </div>
-
-        <!-- タブ4: クイック手動入力 -->
+        <!-- タブ3: 推計クイック入力 (ルールベース自動推定) -->
         <div id="tab-content-quick" class="hidden space-y-3">
           <form onsubmit="submitQuickMeal(event)" class="space-y-3">
             <div>
               <label class="block text-xs font-semibold text-slate-300 mb-1">料理名・メニュー名 <span class="text-rose-400">*</span></label>
-              <input type="text" id="quick-name" required placeholder="例: カツカレー、手作りオムライス" 
-                     class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none">
+              <div class="flex gap-2">
+                <input type="text" id="quick-name" required oninput="debounceEstimateNutrition()" placeholder="例: チキン南蛮定食、豚骨ラーメン大盛り、カツカレー" 
+                       class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none">
+              </div>
+            </div>
+
+            <!-- ルールベース推計サジェストバナー -->
+            <div id="estimate-suggestion-banner" class="hidden bg-emerald-950/40 border border-emerald-700/60 rounded-xl p-2.5 text-xs text-emerald-300 space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="font-bold flex items-center gap-1.5">
+                  <i class="fa-solid fa-lightbulb text-amber-400"></i>
+                  標準推計値を検出
+                </span>
+                <span id="est-reason" class="text-[10px] text-slate-400"></span>
+              </div>
+              <div class="flex items-center justify-between text-[11px] text-slate-300">
+                <span class="font-black text-amber-400 text-sm"><span id="est-cal">--</span> kcal</span>
+                <span>P:<b id="est-p">--</b>g F:<b id="est-f">--</b>g C:<b id="est-c">--</b>g 塩:<b id="est-salt">--</b>g</span>
+              </div>
+              <button type="button" onclick="applyEstimatedValues()" class="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition-colors">
+                この推計値をフォームに自動セット
+              </button>
             </div>
 
             <div class="grid grid-cols-2 gap-2">
@@ -467,9 +524,23 @@
             </div>
 
             <button type="submit" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-emerald-600/30">
-              クイック登録
+              登録する
             </button>
           </form>
+        </div>
+
+        <!-- タブ4: うどん巡礼連携 -->
+        <div id="tab-content-udon" class="hidden space-y-3">
+          <div class="bg-amber-950/30 border border-amber-800/50 rounded-2xl p-3 text-xs text-amber-300 flex items-center gap-2">
+            <i class="fa-solid fa-bowl-food text-amber-400 text-base"></i>
+            <span>うどん巡礼アプリで訪問・実食したうどんをワンタップで取り込めます！</span>
+          </div>
+
+          <div id="udon-recent-list" class="space-y-2">
+            <div class="text-center py-4 text-xs text-slate-500">
+              うどん巡礼の記録を取得中...
+            </div>
+          </div>
         </div>
 
       </div>
@@ -566,8 +637,9 @@
     let isModalScanning = false;
     let pendingScannedProduct = null;
     let searchDebounceTimer = null;
+    let estimateDebounceTimer = null;
+    let currentEstimatedData = null;
 
-    // モーダル開閉
     function openAddMealModal(mealType, label) {
       currentMealType = mealType;
       document.getElementById('modal-meal-label').textContent = label;
@@ -588,9 +660,8 @@
       document.getElementById('modal-profile').classList.add('hidden');
     }
 
-    // タブ切替
     function switchTab(tab) {
-      ['barcode', 'search', 'udon', 'quick'].forEach(t => {
+      ['barcode', 'search', 'quick', 'udon'].forEach(t => {
         document.getElementById(`tab-content-${t}`).classList.add('hidden');
         const btn = document.getElementById(`tab-btn-${t}`);
         btn.classList.remove('text-emerald-400', 'border-b-2', 'border-emerald-500');
@@ -647,17 +718,37 @@
       document.getElementById('btn-modal-scan-stop').classList.add('hidden');
     }
 
-    // スキャン成功時
+    // スキャン成功時 (カロリー欠損時はルール推定で自動補完！)
     async function onScanSuccessInModal(code) {
       stopModalScanner();
       try {
         const res = await fetch(`/foodscan/api/lookup/?barcode=${encodeURIComponent(code)}`);
         const data = await res.json();
         if (data.found && data.product) {
-          pendingScannedProduct = data.product;
-          showScannedPreview(data.product);
+          let p = data.product;
+          
+          // カロリーがnullまたは0の場合はルールベース自動推計で補完
+          if (!p.calories || p.calories === 0) {
+            const estRes = await fetch(`/foodlog/api/estimate/?name=${encodeURIComponent(p.name)}`);
+            const estData = await estRes.json();
+            if (estData.success && estData.estimate.calories > 0) {
+              p.calories = estData.estimate.calories;
+              p.protein = estData.estimate.protein;
+              p.fat = estData.estimate.fat;
+              p.carbohydrates = estData.estimate.carbohydrates;
+              p.salt = estData.estimate.salt;
+              p.is_estimated = true;
+              p.estimate_reason = estData.estimate.reason;
+            }
+          }
+
+          pendingScannedProduct = p;
+          showScannedPreview(p);
         } else {
-          alert(`コード「${code}」の食品データは見つかりませんでした。クイック登録タブから手動登録をお試しください。`);
+          // 未登録の場合は推計タブへ案内
+          switchTab('quick');
+          document.getElementById('quick-name').value = `商品 (${code})`;
+          debounceEstimateNutrition();
         }
       } catch (e) {
         alert("照会通信エラー: " + e);
@@ -669,6 +760,15 @@
       card.classList.remove('hidden');
       document.getElementById('prev-name').textContent = p.name;
       document.getElementById('prev-cal').textContent = `${p.calories || 0} kcal (${p.serving_size || '100g'})`;
+      
+      const noteEl = document.getElementById('prev-note');
+      if (p.is_estimated) {
+        noteEl.textContent = `💡 公式栄養素未登録のため、標準推計値 (${p.estimate_reason}) を自動補完しました`;
+        noteEl.classList.remove('hidden');
+      } else {
+        noteEl.classList.add('hidden');
+      }
+
       const img = document.getElementById('prev-img');
       img.src = p.image_url || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2364748b"%3E%3Cpath d="M18 20V4H6v16h12Z"/%3E%3C/svg%3E';
       document.getElementById('prev-amount-range').value = 1.0;
@@ -683,7 +783,6 @@
       document.getElementById('prev-cal').textContent = `${cal} kcal (×${amount.toFixed(2)})`;
     }
 
-    // スキャン品目を登録
     async function commitScannedItem() {
       if (!pendingScannedProduct) return;
       const amount = parseFloat(document.getElementById('prev-amount-range').value);
@@ -705,7 +804,25 @@
       await postAddMeal(payload);
     }
 
-    // 定番料理プリセット選択
+    // 定番料理のカテゴリフィルタリング
+    function filterPresetCategory(cat) {
+      document.querySelectorAll('.cat-filter-btn').forEach(b => {
+        if (b.dataset.cat === cat) {
+          b.className = "cat-filter-btn px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-600 text-white flex-shrink-0";
+        } else {
+          b.className = "cat-filter-btn px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 flex-shrink-0";
+        }
+      });
+
+      document.querySelectorAll('.cat-group').forEach(group => {
+        if (cat === 'all' || group.classList.contains(`cat-${cat}`)) {
+          group.classList.remove('hidden');
+        } else {
+          group.classList.add('hidden');
+        }
+      });
+    }
+
     async function selectPresetFood(f) {
       const payload = {
         date: currentDate,
@@ -722,7 +839,48 @@
       await postAddMeal(payload);
     }
 
-    // クイック手動登録
+    // ルールベース栄養推計 (クイック入力でキー入力時に即座に提案！)
+    function debounceEstimateNutrition() {
+      clearTimeout(estimateDebounceTimer);
+      estimateDebounceTimer = setTimeout(async () => {
+        const name = document.getElementById('quick-name').value.trim();
+        const banner = document.getElementById('estimate-suggestion-banner');
+        if (!name || name.length < 2) {
+          banner.classList.add('hidden');
+          return;
+        }
+
+        try {
+          const res = await fetch(`/foodlog/api/estimate/?name=${encodeURIComponent(name)}`);
+          const data = await res.json();
+          if (data.success && data.estimate.found) {
+            currentEstimatedData = data.estimate;
+            document.getElementById('est-cal').textContent = data.estimate.calories;
+            document.getElementById('est-p').textContent = data.estimate.protein;
+            document.getElementById('est-f').textContent = data.estimate.fat;
+            document.getElementById('est-c').textContent = data.estimate.carbohydrates;
+            document.getElementById('est-salt').textContent = data.estimate.salt;
+            document.getElementById('est-reason').textContent = data.estimate.reason;
+            banner.classList.remove('hidden');
+          } else {
+            banner.classList.add('hidden');
+          }
+        } catch (e) {
+          banner.classList.add('hidden');
+        }
+      }, 350);
+    }
+
+    function applyEstimatedValues() {
+      if (!currentEstimatedData) return;
+      document.getElementById('quick-calories').value = currentEstimatedData.calories;
+      document.getElementById('quick-p').value = currentEstimatedData.protein;
+      document.getElementById('quick-f').value = currentEstimatedData.fat;
+      document.getElementById('quick-c').value = currentEstimatedData.carbohydrates;
+      document.getElementById('quick-salt').value = currentEstimatedData.salt;
+      document.getElementById('estimate-suggestion-banner').classList.add('hidden');
+    }
+
     async function submitQuickMeal(e) {
       e.preventDefault();
       const payload = {
@@ -738,7 +896,6 @@
       await postAddMeal(payload);
     }
 
-    // 讃岐うどん巡礼データの読み込み
     async function loadRecentUdon() {
       const listEl = document.getElementById('udon-recent-list');
       try {
@@ -779,7 +936,6 @@
       }
     }
 
-    // 食品検索インクリメンタル
     function debounceSearchFood() {
       clearTimeout(searchDebounceTimer);
       searchDebounceTimer = setTimeout(async () => {
@@ -816,15 +972,38 @@
               resultsEl.appendChild(div);
             });
           } else {
-            resultsEl.classList.remove('hidden');
-            presetEl.classList.add('hidden');
-            resultsEl.innerHTML = '<div class="text-center py-3 text-xs text-slate-500">一致する食品が見つかりません</div>';
+            // 一致しない場合は推計候補を表示！
+            const estRes = await fetch(`/foodlog/api/estimate/?name=${encodeURIComponent(q)}`);
+            const estData = await estRes.json();
+            if (estData.success && estData.estimate.calories > 0) {
+              resultsEl.classList.remove('hidden');
+              presetEl.classList.add('hidden');
+              const est = estData.estimate;
+              resultsEl.innerHTML = `
+                <div onclick="selectPresetFood({name: '${est.name}', calories: ${est.calories}, protein: ${est.protein}, fat: ${est.fat}, carbohydrates: ${est.carbohydrates}, salt: ${est.salt}, serving_size: '1人前'})" 
+                     class="p-3 rounded-xl bg-emerald-950/50 border border-emerald-700/80 flex items-center justify-between cursor-pointer">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                      <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i>
+                      ${est.name} (標準推計値で登録)
+                    </p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">${est.reason}</p>
+                  </div>
+                  <div class="text-right ml-2">
+                    <span class="text-xs font-black text-amber-400 font-mono">${est.calories}kcal</span>
+                  </div>
+                </div>
+              `;
+            } else {
+              resultsEl.classList.remove('hidden');
+              presetEl.classList.add('hidden');
+              resultsEl.innerHTML = '<div class="text-center py-3 text-xs text-slate-500">一致する食品が見つかりません</div>';
+            }
           }
         } catch (e) {}
       }, 300);
     }
 
-    // 食事追加API実行 & 画面リロードなし即時更新
     async function postAddMeal(payload) {
       try {
         const res = await fetch('/foodlog/api/meal/add/', {
@@ -835,7 +1014,7 @@
         const data = await res.json();
         if (data.success) {
           closeAddMealModal();
-          location.reload(); // 最新サマリーとリスト反映
+          location.reload();
         } else {
           alert(data.error || "登録に失敗しました");
         }
@@ -844,7 +1023,6 @@
       }
     }
 
-    // 食事削除API実行
     async function deleteMealItem(itemId) {
       if (!confirm("この品目を削除しますか？")) return;
       try {
@@ -864,7 +1042,6 @@
       }
     }
 
-    // 目標設定保存
     async function submitProfile(e) {
       e.preventDefault();
       const payload = {

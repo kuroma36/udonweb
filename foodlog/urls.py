@@ -6,6 +6,7 @@ app_name = 'foodlog'
 urlpatterns = [
     path('', views.index, name='index'),
     path('api/day/', views.api_day, name='api_day'),
+    path('api/estimate/', views.api_estimate, name='api_estimate'),
     path('api/meal/add/', views.api_add_meal, name='api_add_meal'),
     path('api/meal/delete/', views.api_delete_meal, name='api_delete_meal'),
     path('api/search/', views.api_search_foods, name='api_search_foods'),
