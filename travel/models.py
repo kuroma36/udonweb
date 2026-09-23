@@ -191,3 +191,35 @@ class TravelStopPhoto(models.Model):
 
     def __str__(self):
         return f"{self.stop.name} - {self.user.username} ({self.created_at.strftime('%Y/%m/%d')})"
+
+
+class TravelProfile(models.Model):
+    """たびしお（旅ナビ）専用のユーザープロフィール"""
+    AVATAR_ICON_CHOICES = [
+        ('traveler', 'バックパッカー'),
+        ('camera', 'フォトグラファー'),
+        ('plane', 'ジェットセッター'),
+        ('car', 'ロードトリッパー'),
+        ('train', '鉄道マニア'),
+        ('camp', 'キャンパー'),
+        ('food', 'グルメ探訪家'),
+        ('relax', '温泉・癒やし'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='travel_profile', verbose_name='ユーザー')
+    nickname = models.CharField('ニックネーム', max_length=50)
+    avatar_color = models.CharField('アバター色', max_length=20, default='#0284C7')
+    avatar_icon = models.CharField('アバターアイコン', max_length=30, choices=AVATAR_ICON_CHOICES, default='traveler')
+    bio = models.TextField('自己紹介・旅スタイル', blank=True)
+    is_email_verified = models.BooleanField('メール認証完了', default=False)
+    email_verified_at = models.DateTimeField('認証完了日時', null=True, blank=True)
+    created_at = models.DateTimeField('作成日時', auto_now_add=True)
+    updated_at = models.DateTimeField('更新日時', auto_now=True)
+
+    class Meta:
+        verbose_name = 'たびしおプロフィール'
+        verbose_name_plural = 'たびしおプロフィール一覧'
+
+    def __str__(self):
+        status = '✓認証済' if self.is_email_verified else '⏳未認証'
+        return f"{self.nickname} ({self.user.email or self.user.username}) [{status}]"

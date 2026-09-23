@@ -1,16 +1,16 @@
 {% extends 'travel/base.html' %}
 {% load static %}
 
-{% block title %}ログイン・新規登録 - たびしお (TABISHIO){% endblock %}
+{% block title %}ログイン - たびしお (TABISHIO){% endblock %}
 
 {% block content %}
-<div style="padding: 2rem 1rem 4rem; max-width: 460px; margin: 0 auto; width: 100%;">
+<div style="padding: 2.5rem 1rem 5rem; max-width: 440px; margin: 0 auto; width: 100%;">
 
   <!-- Brand Hero -->
   <div style="text-align: center; margin-bottom: 2rem;">
     <div style="
-      width: 80px;
-      height: 80px;
+      width: 76px;
+      height: 76px;
       margin: 0 auto 1rem;
       border-radius: var(--radius-xl);
       background: #FFFFFF;
@@ -24,122 +24,112 @@
       <img src="{% static 'travel/img/tabishio_icon.svg' %}" alt="たびしお" style="width: 100%; height: 100%; object-fit: contain;">
     </div>
 
-    <div style="display: inline-block; background: #E0F2FE; color: #0369A1; padding: 0.25rem 0.85rem; border-radius: var(--radius-full); font-size: 0.8rem; font-weight: 700; margin-bottom: 0.5rem;">
-      スマートな旅行計画・しおり＆ルートマップ
+    <div style="display: inline-block; background: #E0F2FE; color: #0369A1; padding: 0.25rem 0.85rem; border-radius: var(--radius-full); font-size: 0.75rem; font-weight: 700; margin-bottom: 0.5rem;">
+      旅のしおり＆複数日程旅行ナビ
     </div>
-    <h1 style="font-size: 1.85rem; font-weight: 900; letter-spacing: -0.02em; color: var(--text-main);">
-      たびしお <span style="font-size: 1.15rem; color: var(--accent-sky); font-weight: 700;">TABISHIO</span>
+    <h1 style="font-size: 1.75rem; font-weight: 900; letter-spacing: -0.02em; color: var(--text-main); margin: 0;">
+      たびしおにログイン
     </h1>
-    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
-      旅のしおりで、たびをひとしお豊かに。
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.35rem;">
+      登録済みのメールアドレスとパスワードでログインしてください
     </p>
   </div>
 
   <!-- Login Card -->
   <div style="background: #FFFFFF; border-radius: var(--radius-xl); padding: 2rem; box-shadow: var(--shadow-lg); border: 1px solid var(--border-light);">
 
-    <!-- Existing Users Quick Switch Chips -->
-    {% if existing_profiles %}
-    <div style="margin-bottom: 1.75rem;">
-      <label class="form-label" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;">
-        <span style="font-weight: 700; color: var(--text-main);">登録済みのトラベラー</span>
-        <span style="font-size: 0.75rem; color: var(--accent-sky); font-weight: 700;">タップで即ログイン ⇄</span>
-      </label>
-
-      <form method="POST" id="quick-login-form">
-        {% csrf_token %}
-        <input type="hidden" name="next" value="{{ next }}">
-        <input type="hidden" name="user_id" id="quick-user-id">
-
-        <div style="display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.5rem;">
-          {% for p in existing_profiles %}
-          <button 
-            type="button" 
-            onclick="quickLogin('{{ p.user.id }}')"
-            style="
-              display: inline-flex;
-              align-items: center;
-              gap: 0.5rem;
-              padding: 0.35rem 0.75rem 0.35rem 0.4rem;
-              background: var(--bg-main);
-              border: 1px solid var(--border-light);
-              border-radius: var(--radius-full);
-              cursor: pointer;
-              white-space: nowrap;
-              transition: var(--transition-fast);
-            "
-            onmouseover="this.style.borderColor='var(--accent-sky)'; this.style.background='#FFFFFF';"
-            onmouseout="this.style.borderColor='var(--border-light)'; this.style.background='var(--bg-main)';"
-            title="{{ p.nickname }}としてログイン"
-          >
-            {% if p.avatar_image %}
-              <img src="{{ p.avatar_image.url }}" alt="{{ p.nickname }}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;">
-            {% else %}
-              <div class="user-avatar-circle" style="background: {{ p.avatar_color|default:'#0284C7' }}; width: 24px; height: 24px; font-size: 0.75rem;">
-                {{ p.nickname|default:p.user.username|make_list|first|upper }}
-              </div>
-            {% endif %}
-            <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">{{ p.nickname }}</span>
-            {% if forloop.first %}
-              <span style="font-size: 0.65rem; background: var(--accent-sky); color: #FFFFFF; padding: 0.1rem 0.35rem; border-radius: var(--radius-full);">最新</span>
-            {% endif %}
-          </button>
-          {% endfor %}
-        </div>
-      </form>
-    </div>
-
-    <div style="display: flex; align-items: center; margin: 1.5rem 0; color: var(--text-muted); font-size: 0.8rem;">
-      <div style="flex: 1; height: 1px; background: var(--border-light);"></div>
-      <span style="padding: 0 0.75rem;">または</span>
-      <div style="flex: 1; height: 1px; background: var(--border-light);"></div>
+    {% if error_message %}
+    <div style="background: #FEF2F2; border: 1px solid #FCA5A5; color: #B91C1C; padding: 0.85rem 1rem; border-radius: var(--radius-md); font-size: 0.85rem; margin-bottom: 1.25rem; display: flex; align-items: flex-start; gap: 8px;">
+      <span style="font-size: 1rem;">⚠️</span>
+      <div>{{ error_message }}</div>
     </div>
     {% endif %}
 
-    <!-- Name-only Login / Auto Registration Form -->
-    <form method="POST">
+    <form method="POST" action="{% url 'travel:login' %}">
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ next }}">
 
       <div class="form-group" style="margin-bottom: 1.25rem;">
-        <label class="form-label" for="input-nickname" style="font-size: 0.95rem;">
-          お名前 / ニックネーム
+        <label class="form-label" for="input-email" style="font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.4rem; display: block;">
+          メールアドレス
         </label>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-          パスワード不要！お名前を入力するだけでログイン・自動登録できます
-        </p>
         <input 
-          type="text" 
-          name="nickname" 
-          id="input-nickname"
+          type="email" 
+          name="email" 
+          id="input-email"
           class="form-input" 
           required 
-          placeholder="例: たびたろう、Yuki、旅好きファミリー"
-          style="font-size: 1rem; padding: 0.85rem 1rem;"
+          autocomplete="email"
+          value="{{ email|default:'' }}"
+          placeholder="例: travel@example.com"
+          style="font-size: 0.95rem; padding: 0.75rem 1rem; width: 100%; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-sizing: border-box;"
         >
       </div>
 
-      <button type="submit" class="btn-travel-new" style="width: 100%; justify-content: center; padding: 0.85rem; font-size: 1rem; border-radius: var(--radius-md); display: inline-flex; align-items: center; gap: 8px;">
-        <span>たびしおをはじめる</span>
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+          <label class="form-label" for="input-password" style="font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin: 0;">
+            パスワード
+          </label>
+        </div>
+        <div style="position: relative;">
+          <input 
+            type="password" 
+            name="password" 
+            id="input-password"
+            class="form-input" 
+            required 
+            autocomplete="current-password"
+            placeholder="パスワードを入力"
+            style="font-size: 0.95rem; padding: 0.75rem 2.5rem 0.75rem 1rem; width: 100%; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-sizing: border-box;"
+          >
+          <button 
+            type="button" 
+            onclick="togglePasswordVisibility('input-password', this)"
+            style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 4px;"
+            title="パスワードの表示切替"
+          >
+            👁️
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-travel-new" style="width: 100%; justify-content: center; padding: 0.85rem; font-size: 1rem; font-weight: 700; border-radius: var(--radius-md); display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+        <span>ログインする</span>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
       </button>
     </form>
 
-    <!-- Guest Mode Option -->
-    <div style="margin-top: 1.5rem; text-align: center; border-top: 1px solid var(--border-light); padding-top: 1.25rem;">
-      <a href="{% url 'travel:guest_mode' %}?next={{ next }}" class="btn-action-outline" style="width: 100%; justify-content: center; display: inline-flex; align-items: center; gap: 8px;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
-        <span>ゲストとしてすぐ体験する</span>
+    <!-- Registration Link -->
+    <div style="margin-top: 1.75rem; text-align: center; border-top: 1px solid var(--border-light); padding-top: 1.5rem;">
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+        まだアカウントをお持ちでない方
+      </p>
+      <a href="{% url 'travel:register' %}{% if next %}?next={{ next }}{% endif %}" class="btn-action-outline" style="width: 100%; justify-content: center; display: inline-flex; align-items: center; gap: 8px; padding: 0.75rem; font-size: 0.95rem; font-weight: 700; box-sizing: border-box; text-decoration: none;">
+        <span>✉️ 新規アカウント登録（メール認証）</span>
       </a>
     </div>
+
+    <!-- Resend Link -->
+    <div style="margin-top: 1rem; text-align: center;">
+      <a href="{% url 'travel:resend_activation' %}" style="font-size: 0.8rem; color: #0284c7; text-decoration: none;">
+        認証メールが届かない・再送はこちら ➔
+      </a>
+    </div>
+
   </div>
 </div>
 
 <script>
-function quickLogin(userId) {
-  const form = document.getElementById('quick-login-form');
-  document.getElementById('quick-user-id').value = userId;
-  form.submit();
+function togglePasswordVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🔒';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁️';
+  }
 }
 </script>
 {% endblock %}

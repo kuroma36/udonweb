@@ -1,0 +1,78 @@
+{% extends 'travel/base.html' %}
+{% load static %}
+
+{% block title %}認証メール再送 - たびしお (TABISHIO){% endblock %}
+
+{% block content %}
+<div style="padding: 2.5rem 1rem 5rem; max-width: 440px; margin: 0 auto; width: 100%;">
+
+  <!-- Brand Hero -->
+  <div style="text-align: center; margin-bottom: 2rem;">
+    <div style="
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 1rem;
+      border-radius: 50%;
+      background: #E0F2FE;
+      color: #0284C7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+    ">
+      ✉️
+    </div>
+
+    <h1 style="font-size: 1.6rem; font-weight: 900; letter-spacing: -0.02em; color: var(--text-main); margin: 0;">
+      認証メールの再送
+    </h1>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.35rem;">
+      仮登録時のメールアドレスを入力してください
+    </p>
+  </div>
+
+  <!-- Card -->
+  <div style="background: #FFFFFF; border-radius: var(--radius-xl); padding: 2rem; box-shadow: var(--shadow-lg); border: 1px solid var(--border-light);">
+
+    {% if error_message %}
+    <div style="background: #FEF2F2; border: 1px solid #FCA5A5; color: #B91C1C; padding: 0.85rem 1rem; border-radius: var(--radius-md); font-size: 0.85rem; margin-bottom: 1.25rem; display: flex; align-items: flex-start; gap: 8px;">
+      <span>⚠️</span>
+      <div>{{ error_message }}</div>
+    </div>
+    {% endif %}
+
+    <form method="POST" action="{% url 'travel:resend_activation' %}">
+      {% csrf_token %}
+
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label class="form-label" for="input-email" style="font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.4rem; display: block;">
+          ご登録のメールアドレス
+        </label>
+        <input 
+          type="email" 
+          name="email" 
+          id="input-email"
+          class="form-input" 
+          required 
+          autocomplete="email"
+          value="{{ email|default:'' }}"
+          placeholder="例: travel@example.com"
+          style="font-size: 0.95rem; padding: 0.75rem 1rem; width: 100%; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-sizing: border-box;"
+        >
+      </div>
+
+      <button type="submit" class="btn-travel-new" style="width: 100%; justify-content: center; padding: 0.85rem; font-size: 1rem; font-weight: 700; border-radius: var(--radius-md); display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+        <span>再送メールを送信する</span>
+      </button>
+    </form>
+
+    <div style="margin-top: 1.5rem; text-align: center; border-top: 1px solid var(--border-light); padding-top: 1.25rem;">
+      <a href="{% url 'travel:login' %}" style="font-size: 0.85rem; color: #0284C7; text-decoration: none;">
+        ログイン画面へ戻る ➔
+      </a>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

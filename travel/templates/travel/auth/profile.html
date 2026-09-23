@@ -1,0 +1,142 @@
+{% extends 'travel/base.html' %}
+{% load static %}
+
+{% block title %}プロフィール設定 - たびしお (TABISHIO){% endblock %}
+
+{% block content %}
+<div style="padding: 2.5rem 1rem 5rem; max-width: 520px; margin: 0 auto; width: 100%;">
+
+  <div style="text-align: center; margin-bottom: 2rem;">
+    <h1 style="font-size: 1.6rem; font-weight: 900; letter-spacing: -0.02em; color: var(--text-main); margin: 0;">
+      たびしお プロフィール設定
+    </h1>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.35rem;">
+      旅行のしおりやメンバー表示に使用される情報を変更できます
+    </p>
+  </div>
+
+  <div style="background: #FFFFFF; border-radius: var(--radius-xl); padding: 2rem; box-shadow: var(--shadow-lg); border: 1px solid var(--border-light);">
+
+    <!-- Current Avatar Preview -->
+    <div style="text-align: center; margin-bottom: 1.75rem;">
+      <div id="avatar-preview" style="
+        width: 72px;
+        height: 72px;
+        margin: 0 auto 0.75rem;
+        border-radius: 50%;
+        background-color: {{ profile.avatar_color }};
+        color: #FFFFFF;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        font-weight: 700;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        transition: background-color 0.2s ease;
+      ">
+        {{ profile.nickname|default:request.user.username|make_list|first|upper }}
+      </div>
+      <div style="font-size: 0.85rem; color: var(--text-muted);">
+        {{ request.user.email }} <span style="color: #059669; font-weight: 700; font-size: 0.75rem; background: #DCFCE7; padding: 2px 8px; border-radius: 9999px; margin-left: 4px;">✓ 認証済</span>
+      </div>
+    </div>
+
+    <form method="POST" action="{% url 'travel:profile' %}">
+      {% csrf_token %}
+
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label class="form-label" for="input-nickname" style="font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.4rem; display: block;">
+          お名前 / ニックネーム
+        </label>
+        <input 
+          type="text" 
+          name="nickname" 
+          id="input-nickname"
+          class="form-input" 
+          required 
+          value="{{ profile.nickname }}"
+          oninput="updatePreviewInitial(this.value)"
+          style="font-size: 0.95rem; padding: 0.75rem 1rem; width: 100%; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-sizing: border-box;"
+        >
+      </div>
+
+      <!-- Color Swatches -->
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label class="form-label" style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.5rem; display: block;">
+          アバターのテーマカラー
+        </label>
+        <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+          {% for color in colors %}
+          <label style="cursor: pointer;">
+            <input type="radio" name="avatar_color" value="{{ color.hex }}" {% if profile.avatar_color == color.hex %}checked{% endif %} style="display: none;" class="avatar-color-radio">
+            <div class="color-swatch" style="width: 32px; height: 32px; border-radius: 50%; background-color: {{ color.hex }}; display: flex; align-items: center; justify-content: center; border: 2px solid transparent; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.15s ease;" title="{{ color.name }}">
+              <span class="check-mark" style="color: #FFF; font-size: 14px; font-weight: bold; display: none;">✓</span>
+            </div>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Bio -->
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label class="form-label" for="input-bio" style="font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.4rem; display: block;">
+          旅の自己紹介・スタイル（任意）
+        </label>
+        <textarea 
+          name="bio" 
+          id="input-bio"
+          class="form-input" 
+          rows="3"
+          placeholder="例: 温泉巡りとご当地グルメが大好きです。週末によくドライブに出かけます！"
+          style="font-size: 0.9rem; padding: 0.75rem 1rem; width: 100%; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-sizing: border-box;"
+        >{{ profile.bio }}</textarea>
+      </div>
+
+      <button type="submit" class="btn-travel-new" style="width: 100%; justify-content: center; padding: 0.85rem; font-size: 1rem; font-weight: 700; border-radius: var(--radius-md); display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+        <span>設定を保存する</span>
+      </button>
+    </form>
+
+    <div style="margin-top: 1.5rem; text-align: center; border-top: 1px solid var(--border-light); padding-top: 1.25rem;">
+      <a href="{% url 'travel:trip_list' %}" style="font-size: 0.85rem; color: #0284C7; text-decoration: none;">
+        旅の一覧へ戻る ➔
+      </a>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+function updatePreviewInitial(val) {
+  const preview = document.getElementById('avatar-preview');
+  if (val && val.trim().length > 0) {
+    preview.textContent = val.trim()[0].toUpperCase();
+  }
+}
+
+document.querySelectorAll('.avatar-color-radio').forEach(radio => {
+  radio.addEventListener('change', () => {
+    updateColorSwatches();
+    document.getElementById('avatar-preview').style.backgroundColor = radio.value;
+  });
+});
+
+function updateColorSwatches() {
+  document.querySelectorAll('.avatar-color-radio').forEach(radio => {
+    const swatch = radio.nextElementSibling;
+    const check = swatch.querySelector('.check-mark');
+    if (radio.checked) {
+      swatch.style.borderColor = '#0284c7';
+      swatch.style.transform = 'scale(1.15)';
+      check.style.display = 'block';
+    } else {
+      swatch.style.borderColor = 'transparent';
+      swatch.style.transform = 'scale(1.0)';
+      check.style.display = 'none';
+    }
+  });
+}
+updateColorSwatches();
+</script>
+{% endblock %}

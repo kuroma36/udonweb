@@ -19,19 +19,15 @@
       </a>
 
       <div class="header-actions">
-        {% if request.user.is_authenticated %}
+        {% if request.user.is_authenticated and request.user.travel_profile and request.user.travel_profile.is_email_verified %}
         <div class="header-user-column">
           <!-- 上段: ユーザプロフィール（右上） -->
           <div class="header-user-top">
-            <a href="{% url 'udon:profile_edit' %}?next={{ request.path }}" class="user-profile-badge" title="プロフィール設定">
-              {% if request.user.profile.avatar_image %}
-                <img src="{{ request.user.profile.avatar_image.url }}" alt="{{ request.user.profile.nickname }}" class="user-avatar-circle">
-              {% else %}
-                <div class="user-avatar-circle" style="background-color: {{ request.user.profile.avatar_color|default:'#0284C7' }};">
-                  {{ request.user.profile.nickname|default:request.user.username|make_list|first|upper }}
-                </div>
-              {% endif %}
-              <span class="user-profile-name">{{ request.user.profile.nickname|default:request.user.username }}</span>
+            <a href="{% url 'travel:profile' %}" class="user-profile-badge" title="たびしお プロフィール設定">
+              <div class="user-avatar-circle" style="background-color: {{ request.user.travel_profile.avatar_color|default:'#0284C7' }};">
+                {{ request.user.travel_profile.nickname|default:request.user.username|make_list|first|upper }}
+              </div>
+              <span class="user-profile-name">{{ request.user.travel_profile.nickname }}</span>
             </a>
             <a href="{% url 'travel:logout' %}" class="btn-action-outline btn-logout-compact" title="ログアウト">
               ログアウト
@@ -48,11 +44,8 @@
         </div>
         {% else %}
         <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <a href="{% url 'travel:trip_create' %}" class="btn-travel-new btn-header-plan">
-            <span>＋</span>
-            <span>旅を計画</span>
-          </a>
-          <a href="{% url 'travel:login' %}?next={{ request.path }}" class="btn-action-outline" style="color: #FFFFFF; border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.1);">ログイン</a>
+          <a href="{% url 'travel:login' %}?next={{ request.path }}" class="btn-action-outline" style="color: #FFFFFF; border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); text-decoration: none; padding: 0.4rem 0.85rem; border-radius: var(--radius-full); font-size: 0.85rem; font-weight: 700;">ログイン</a>
+          <a href="{% url 'travel:register' %}" class="btn-travel-new btn-header-plan" style="text-decoration: none;">新規登録</a>
         </div>
         {% endif %}
       </div>

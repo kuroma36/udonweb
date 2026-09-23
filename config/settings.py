@@ -142,11 +142,32 @@ LOGOUT_REDIRECT_URL = 'udon:home'
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
+# Email Configuration (Django 6.1 MAILERS)
+_email_host = os.environ.get('EMAIL_HOST', '')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'たびしお <noreply@krmts.com>')
+
+if _email_host:
+    MAILERS = {
+        'default': {
+            'BACKEND': 'django.core.mail.backends.smtp.EmailBackend',
+            'OPTIONS': {
+                'host': _email_host,
+                'port': int(os.environ.get('EMAIL_PORT', 587)),
+                'use_tls': os.environ.get('EMAIL_USE_TLS', 'True').lower() in ('true', '1', 'yes'),
+                'username': os.environ.get('EMAIL_HOST_USER', ''),
+                'password': os.environ.get('EMAIL_HOST_PASSWORD', ''),
+            },
+        },
+    }
+else:
+    MAILERS = {
+        'default': {
+            'BACKEND': 'django.core.mail.backends.filebased.EmailBackend',
+            'OPTIONS': {
+                'file_path': os.path.join(BASE_DIR, 'sent_emails'),
+            },
+        },
+    }
 
 # プロキシ経由の HTTPS 接続を正しく認識させる
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

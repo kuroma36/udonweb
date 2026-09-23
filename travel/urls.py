@@ -13,10 +13,15 @@ urlpatterns = [
     path('trips/<int:trip_id>/guide/', views.trip_guide, name='trip_guide'),
     path('trips/<int:trip_id>/stops/<int:stop_id>/', views.stop_detail, name='stop_detail'),
     
-    # Auth
+    # たびしお専用認証
     path('login/', views.login_view, name='login'),
-    path('guest/', views.guest_mode, name='guest_mode'),
+    path('register/', views.register_view, name='register'),
+    path('register/sent/', views.register_sent_view, name='register_sent'),
+    path('activate/<str:uidb64>/<str:token>/', views.activate_view, name='activate'),
+    path('activate/success/', views.activation_success_view, name='activation_success'),
+    path('resend-activation/', views.resend_activation_view, name='resend_activation'),
     path('logout/', views.logout_view, name='logout'),
+    path('profile/', views.profile_view, name='profile'),
 
     # API endpoints
     path('api/trips/<int:trip_id>/add-stop/', views.api_add_stop, name='api_add_stop'),

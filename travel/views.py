@@ -1,28 +1,46 @@
 import json
 import urllib.request
 from datetime import datetime, timedelta
+from functools import wraps
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.http import JsonResponse, HttpResponseForbidden
-from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.contrib.auth import login, logout
+from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.utils import timezone
 from django.conf import settings
 from django.db.models import F, Q
 from django.views.decorators.cache import never_cache
-from .models import TravelTrip, TravelDay, TravelStop, TravelStopPhoto
-from udon.models import UserProfile
-from udon.views import get_or_create_user_by_nickname
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from .models import TravelTrip, TravelDay, TravelStop, TravelStopPhoto, TravelProfile
+from .tokens import account_activation_token
 
 
-@login_required(login_url='travel:login')
+def travel_login_required(view_func):
+    """たびしお専用のログイン検証デコレータ（メール認証完了が必須）"""
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect(f"{reverse('travel:login')}?next={request.path}")
+        tp = getattr(request.user, 'travel_profile', None)
+        if not tp or not tp.is_email_verified:
+            messages.warning(request, 'たびしおのアカウントでログイン、またはメールアドレス認証を完了してください。')
+            return redirect(f"{reverse('travel:login')}?next={request.path}")
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
+
+
+@travel_login_required
 def home(request):
     """ルートURL: 旅行一覧へリダイレクト"""
     return redirect('travel:trip_list')
 
 
-@login_required(login_url='travel:login')
+@travel_login_required
 def trip_list(request):
     """旅行一覧画面: 計画中の旅と過去の旅"""
     today = timezone.now().date()
@@ -46,13 +64,15 @@ def trip_list(request):
 
 def models_filter_user(user):
     from django.db.models import Q
+    if not user.is_authenticated:
+        return Q(id__isnull=True)
     return Q(created_by=user) | Q(members=user)
 
 
-@login_required(login_url='travel:login')
+@travel_login_required
 def trip_create(request):
     """旅行の新規作成"""
-    all_users = User.objects.exclude(id=request.user.id).select_related('profile')
+    all_users = User.objects.exclude(id=request.user.id).select_related('travel_profile')
 
     if request.method == 'POST':
         title = request.POST.get('title', '').strip()
@@ -106,14 +126,14 @@ def trip_create(request):
     })
 
 
-@login_required(login_url='travel:login')
+@travel_login_required
 def trip_edit(request, trip_id):
     """旅行の基本情報編集"""
     trip = get_object_or_404(TravelTrip, id=trip_id)
     if not trip.is_accessible_by(request.user):
         return HttpResponseForbidden('この旅程を編集する権限がありません。')
 
-    all_users = User.objects.exclude(id=trip.created_by.id).select_related('profile')
+    all_users = User.objects.exclude(id=trip.created_by.id).select_related('travel_profile')
 
     if request.method == 'POST':
         title = request.POST.get('title', '').strip()
@@ -171,7 +191,7 @@ def trip_edit(request, trip_id):
     })
 
 
-@login_required(login_url='travel:login')
+@travel_login_required
 def trip_delete(request, trip_id):
     """旅行の削除（作成者のみ）"""
     trip = get_object_or_404(TravelTrip, id=trip_id)
@@ -188,7 +208,7 @@ def trip_delete(request, trip_id):
     return redirect('travel:trip_detail', trip_id=trip.id)
 
 
-@login_required(login_url='travel:login')
+@travel_login_required
 def trip_detail(request, trip_id):
     """メイン画面: ルートマップ ＆ Day別タイムライン ＆ 共同編集"""
     trip = get_object_or_404(
@@ -247,7 +267,7 @@ def trip_detail(request, trip_id):
     # メンバー追加モーダル用の既存ユーザー一覧
     existing_member_ids = set(trip.members.values_list('id', flat=True))
     existing_member_ids.add(trip.created_by.id)
-    candidate_users = User.objects.exclude(id__in=existing_member_ids).select_related('profile')
+    candidate_users = User.objects.exclude(id__in=existing_member_ids).select_related('travel_profile')
 
     context = {
         'trip': trip,
@@ -261,7 +281,7 @@ def trip_detail(request, trip_id):
     return render(request, 'travel/trip_detail.html', context)
 
 
-@login_required(login_url='travel:login')
+@travel_login_required
 def trip_guide(request, trip_id):
     """旅のしおり画面: 全日程のタイムライン・メモ・印刷ビュー"""
     trip = get_object_or_404(
@@ -320,11 +340,11 @@ def fetch_google_place_details(place_id):
     return {}
 
 
-@login_required(login_url='travel:login')
+@travel_login_required
 def stop_detail(request, trip_id, stop_id):
     """スポット専用詳細ページ: Googleクチコミ上位3件 ＆ 写真ギャラリー・投稿"""
     trip = get_object_or_404(
-        TravelTrip.objects.prefetch_related('members__profile', 'created_by__profile'),
+        TravelTrip.objects.prefetch_related('members__travel_profile', 'created_by__travel_profile'),
         id=trip_id
     )
     if not trip.is_accessible_by(request.user):
@@ -370,7 +390,7 @@ def stop_detail(request, trip_id, stop_id):
     return render(request, 'travel/stop_detail.html', context)
 
 
-@login_required(login_url='travel:login')
+@travel_login_required
 def api_upload_stop_photo(request, trip_id, stop_id):
     """スポットへの写真投稿（複数枚対応）"""
     if request.method != 'POST':
@@ -405,7 +425,7 @@ def api_upload_stop_photo(request, trip_id, stop_id):
     return redirect('travel:stop_detail', trip_id=trip.id, stop_id=stop.id)
 
 
-@login_required(login_url='travel:login')
+@travel_login_required
 def api_delete_stop_photo(request, trip_id, stop_id, photo_id):
     """スポット投稿写真の削除"""
     if request.method != 'POST':
@@ -431,7 +451,7 @@ def api_delete_stop_photo(request, trip_id, stop_id, photo_id):
 # REST / AJAX API エンドポイント群
 # ==========================================
 
-@login_required(login_url='travel:login')
+@travel_login_required
 def api_add_stop(request, trip_id):
     """スポットの追加（Places検索または手動）"""
     if request.method != 'POST':
@@ -554,7 +574,7 @@ def api_add_stop(request, trip_id):
     })
 
 
-@login_required(login_url='travel:login')
+@travel_login_required
 def api_reorder_stops(request, trip_id):
     """ドラッグ＆ドロップによるスポットの巡回順更新"""
     if request.method != 'POST':
@@ -581,7 +601,7 @@ def api_reorder_stops(request, trip_id):
     return JsonResponse({'status': 'ok', 'message': '順序を更新しました'})
 
 
-@login_required(login_url='travel:login')
+@travel_login_required
 def api_delete_stop(request, trip_id, stop_id):
     """スポットの削除（連動する宿泊スポットがある場合は両方削除）"""
     if request.method != 'POST':
@@ -634,7 +654,7 @@ def api_delete_stop(request, trip_id, stop_id):
     })
 
 
-@login_required(login_url='travel:login')
+@travel_login_required
 def api_update_transport(request, trip_id, stop_id):
     """交通手段・ダイヤ情報（案1）の更新"""
     if request.method != 'POST':
@@ -700,7 +720,7 @@ def api_update_transport(request, trip_id, stop_id):
     })
 
 
-@login_required(login_url='travel:login')
+@travel_login_required
 def api_add_member(request, trip_id):
     """共同編集メンバーの追加"""
     if request.method != 'POST':
@@ -733,7 +753,7 @@ def api_add_member(request, trip_id):
     })
 
 
-@login_required(login_url='travel:login')
+@travel_login_required
 def api_delete_member(request, trip_id, member_id):
     """共同編集メンバーの解除"""
     if request.method != 'POST':
@@ -749,97 +769,280 @@ def api_delete_member(request, trip_id, member_id):
     return JsonResponse({'status': 'ok', 'message': 'メンバーを解除しました'})
 
 
+
+
 # ==========================================
-# 旅ナビ専用 Auth ビュー（独立したログイン・登録）
+# たびしお専用 認証ビュー（メール認証・本登録フロー）
 # ==========================================
+
+AVATAR_COLORS = [
+    {'hex': '#0284C7', 'name': 'スカイブルー'},
+    {'hex': '#0F172A', 'name': 'ディープネイビー'},
+    {'hex': '#0D9488', 'name': 'エメラルド'},
+    {'hex': '#F59E0B', 'name': 'サンセット'},
+    {'hex': '#E11D48', 'name': 'コーラル'},
+    {'hex': '#7C3AED', 'name': 'パープル'},
+]
+
 
 @never_cache
 def login_view(request):
-    """旅ナビ専用のログイン・新規登録画面"""
+    """たびしお専用のログイン画面（メールアドレス＋パスワード）"""
+    next_url = request.GET.get('next') or request.POST.get('next') or 'travel:trip_list'
+
+    if request.user.is_authenticated:
+        tp = getattr(request.user, 'travel_profile', None)
+        if tp and tp.is_email_verified:
+            return redirect(next_url)
+
+    if request.method == 'POST':
+        email = request.POST.get('email', '').strip().lower()
+        password = request.POST.get('password', '')
+
+        if not email or not password:
+            return render(request, 'travel/auth/login.html', {
+                'error_message': 'メールアドレスとパスワードを入力してください。',
+                'email': email,
+                'next': next_url,
+            })
+
+        user = User.objects.filter(Q(email__iexact=email) | Q(username__iexact=email)).first()
+
+        if user and user.check_password(password):
+            tp = getattr(user, 'travel_profile', None)
+            if not tp or not tp.is_email_verified:
+                return render(request, 'travel/auth/login.html', {
+                    'error_message': 'メールアドレスの確認が完了していません。受信トレイの確認メールをクリックして本登録を完了してください。',
+                    'email': email,
+                    'next': next_url,
+                })
+
+            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+            user.last_login = timezone.now()
+            user.save(update_fields=['last_login'])
+            messages.success(request, f'おかえりなさい、{tp.nickname}さん！')
+            return redirect(next_url)
+        else:
+            return render(request, 'travel/auth/login.html', {
+                'error_message': 'メールアドレスまたはパスワードが正しくありません。',
+                'email': email,
+                'next': next_url,
+            })
+
+    return render(request, 'travel/auth/login.html', {'next': next_url})
+
+
+@never_cache
+def register_view(request):
+    """たびしお専用の新規アカウント登録画面（確認メール送信）"""
     next_url = request.GET.get('next') or request.POST.get('next') or 'travel:trip_list'
 
     if request.method == 'POST':
-        user_id = request.POST.get('user_id')
         nickname = request.POST.get('nickname', '').strip()
+        email = request.POST.get('email', '').strip().lower()
+        password = request.POST.get('password', '')
+        password2 = request.POST.get('password2', '')
+        avatar_color = request.POST.get('avatar_color', '#0284C7')
 
-        # 1. 登録済みユーザーチップからのワンタップ即時ログイン
-        if user_id:
-            user = get_object_or_404(User, id=user_id)
-            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-            user.last_login = timezone.now()
-            user.save(update_fields=['last_login'])
-            profile = getattr(user, 'profile', None)
-            name = profile.nickname if profile else user.username
-            messages.success(request, f'おかえりなさい、{name}さん！')
-            return redirect(next_url)
+        form_data = {
+            'nickname': nickname,
+            'email': email,
+        }
 
-        # 2. お名前入力によるログインまたは自動登録
-        if nickname:
-            avatar_color = request.POST.get('avatar_color', '#0284C7')
-            avatar_icon = request.POST.get('avatar_icon', 'traveler')
-            
-            user, profile = get_or_create_user_by_nickname(
-                nickname,
-                avatar_color=avatar_color,
-                avatar_icon=avatar_icon,
-                favorite_udon='旅行'
+        if not nickname or not email or not password:
+            return render(request, 'travel/auth/register.html', {
+                'error_message': 'すべての必須項目を入力してください。',
+                'form_data': form_data,
+                'colors': AVATAR_COLORS,
+                'next': next_url,
+            })
+
+        if password != password2:
+            return render(request, 'travel/auth/register.html', {
+                'error_message': 'パスワードが一致しません。もう一度ご確認ください。',
+                'form_data': form_data,
+                'colors': AVATAR_COLORS,
+                'next': next_url,
+            })
+
+        if len(password) < 8:
+            return render(request, 'travel/auth/register.html', {
+                'error_message': 'パスワードは8文字以上で設定してください。',
+                'form_data': form_data,
+                'colors': AVATAR_COLORS,
+                'next': next_url,
+            })
+
+        existing_user = User.objects.filter(Q(email__iexact=email) | Q(username__iexact=email)).first()
+        if existing_user:
+            existing_tp = getattr(existing_user, 'travel_profile', None)
+            if existing_tp and existing_tp.is_email_verified:
+                return render(request, 'travel/auth/register.html', {
+                    'error_message': 'このメールアドレスは既に本登録されています。ログイン画面からログインしてください。',
+                    'form_data': form_data,
+                    'colors': AVATAR_COLORS,
+                    'next': next_url,
+                })
+            else:
+                user = existing_user
+                user.set_password(password)
+                user.is_active = False
+                user.save()
+                if existing_tp:
+                    existing_tp.nickname = nickname
+                    existing_tp.avatar_color = avatar_color
+                    existing_tp.save()
+                else:
+                    TravelProfile.objects.create(
+                        user=user,
+                        nickname=nickname,
+                        avatar_color=avatar_color,
+                        is_email_verified=False
+                    )
+        else:
+            user = User.objects.create_user(
+                username=email,
+                email=email,
+                password=password,
+                is_active=False
             )
-            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-            user.last_login = timezone.now()
-            user.save(update_fields=['last_login'])
-            messages.success(request, f'ようこそ、{profile.nickname}さん！素敵な旅を計画しましょう。')
-            return redirect(next_url)
+            TravelProfile.objects.create(
+                user=user,
+                nickname=nickname,
+                avatar_color=avatar_color,
+                is_email_verified=False
+            )
+
+        send_activation_email(request, user, nickname, email)
+        request.session['registered_email'] = email
+        return redirect('travel:register_sent')
+
+    return render(request, 'travel/auth/register.html', {
+        'colors': AVATAR_COLORS,
+        'next': next_url,
+    })
+
+
+def send_activation_email(request, user, nickname, email):
+    """本登録用のアクティベーションメールを生成・送信"""
+    token = account_activation_token.make_token(user)
+    uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+    activation_url = request.build_absolute_uri(
+        reverse('travel:activate', kwargs={'uidb64': uidb64, 'token': token})
+    )
+
+    context = {
+        'nickname': nickname,
+        'activation_url': activation_url,
+    }
+    subject = '【たびしお】メールアドレスの確認と本登録のお願い'
+    text_content = render_to_string('travel/emails/activation_email.txt', context)
+    html_content = render_to_string('travel/emails/activation_email.html', context)
+
+    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'たびしお <noreply@krmts.com>')
+    send_mail(
+        subject=subject,
+        message=text_content,
+        from_email=from_email,
+        recipient_list=[email],
+        html_message=html_content,
+        fail_silently=False,
+    )
+
+
+def register_sent_view(request):
+    """仮登録完了・確認メール送信済み案内"""
+    email = request.session.get('registered_email') or request.GET.get('email', '')
+    return render(request, 'travel/auth/register_sent.html', {'email': email})
+
+
+@never_cache
+def activate_view(request, uidb64, token):
+    """受信メールのリンクをクリックした時の本登録（アクティベーション）"""
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.filter(pk=uid).first()
+    except (TypeError, ValueError, OverflowError):
+        user = None
+
+    if user is not None and account_activation_token.check_token(user, token):
+        user.is_active = True
+        user.save(update_fields=['is_active'])
+
+        tp = getattr(user, 'travel_profile', None)
+        if tp:
+            tp.is_email_verified = True
+            tp.email_verified_at = timezone.now()
+            tp.save()
+
+        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+        messages.success(request, f'メールアドレスの認証が完了しました！ようこそ、{tp.nickname if tp else user.username}さん。')
+        return redirect('travel:activation_success')
+    else:
+        return render(request, 'travel/auth/activation_invalid.html')
+
+
+def activation_success_view(request):
+    """本登録完了画面"""
+    return render(request, 'travel/auth/activation_success.html')
+
+
+def resend_activation_view(request):
+    """認証メール再送"""
+    email = request.GET.get('email', '')
+    error_message = None
+
+    if request.method == 'POST':
+        email = request.POST.get('email', '').strip().lower()
+        user = User.objects.filter(Q(email__iexact=email) | Q(username__iexact=email)).first()
+
+        if user:
+            tp = getattr(user, 'travel_profile', None)
+            if tp and tp.is_email_verified:
+                error_message = 'このメールアドレスは既に本登録が完了しています。ログイン画面からログインしてください。'
+            else:
+                nickname = tp.nickname if tp else user.username
+                send_activation_email(request, user, nickname, email)
+                request.session['registered_email'] = email
+                messages.info(request, f'{email} 宛に認証メールを再送しました。')
+                return redirect('travel:register_sent')
+        else:
+            error_message = '入力されたメールアドレスのアカウントは見つかりませんでした。新規登録をお願いします。'
+
+    return render(request, 'travel/auth/resend_activation.html', {
+        'email': email,
+        'error_message': error_message,
+    })
+
+
+@travel_login_required
+def profile_view(request):
+    """たびしおプロフィール設定画面"""
+    profile = request.user.travel_profile
+
+    if request.method == 'POST':
+        nickname = request.POST.get('nickname', '').strip()
+        avatar_color = request.POST.get('avatar_color', profile.avatar_color)
+        bio = request.POST.get('bio', '').strip()
+
+        if nickname:
+            profile.nickname = nickname
+            profile.avatar_color = avatar_color
+            profile.bio = bio
+            profile.save()
+            messages.success(request, 'プロフィール設定を保存しました。')
+            return redirect('travel:profile')
         else:
             messages.error(request, 'お名前（ニックネーム）を入力してください。')
 
-    if request.user.is_authenticated:
-        return redirect(next_url)
-
-    # 既存のユーザー一覧（最近利用順）
-    existing_profiles = UserProfile.objects.select_related('user').order_by(
-        F('user__last_login').desc(nulls_last=True),
-        '-created_at'
-    )[:50]
-
-    colors = [
-        {'hex': '#0284C7', 'name': 'スカイブルー'},
-        {'hex': '#0F172A', 'name': 'ディープネイビー'},
-        {'hex': '#0D9488', 'name': 'エメラルド'},
-        {'hex': '#F59E0B', 'name': 'サンセット'},
-        {'hex': '#E11D48', 'name': 'コーラル'},
-        {'hex': '#7C3AED', 'name': 'パープル'},
-    ]
-
-    context = {
-        'existing_profiles': existing_profiles,
-        'colors': colors,
-        'next': next_url,
-    }
-    return render(request, 'travel/auth/login.html', context)
-
-
-def guest_mode(request):
-    """ゲストとしてワンタップ体験ログイン"""
-    next_url = request.GET.get('next') or 'travel:trip_list'
-    import random
-    random_id = random.randint(100, 999)
-    guest_name = f"ゲストトラベラー{random_id}"
-
-    user, profile = get_or_create_user_by_nickname(
-        guest_name,
-        avatar_color='#0284C7',
-        avatar_icon='compass',
-        favorite_udon='旅行'
-    )
-    login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-    user.last_login = timezone.now()
-    user.save(update_fields=['last_login'])
-    messages.info(request, f'ゲストモード（{guest_name}）でログインしました。旅程を自由に計画してみましょう！')
-    return redirect(next_url)
+    return render(request, 'travel/auth/profile.html', {
+        'profile': profile,
+        'colors': AVATAR_COLORS,
+    })
 
 
 def logout_view(request):
-    """ログアウト"""
+    """たびしお専用ログアウト"""
     logout(request)
-    messages.info(request, 'ログアウトしました。またいつでも旅の計画をお待ちしています。')
+    messages.info(request, 'たびしおからログアウトしました。')
     return redirect('travel:login')

@@ -1,0 +1,183 @@
+{% extends 'travel/base.html' %}
+{% load static %}
+
+{% block title %}新規アカウント登録 - たびしお (TABISHIO){% endblock %}
+
+{% block content %}
+<div style="padding: 2.5rem 1rem 5rem; max-width: 480px; margin: 0 auto; width: 100%;">
+
+  <!-- Brand Hero -->
+  <div style="text-align: center; margin-bottom: 2rem;">
+    <div style="
+      width: 76px;
+      height: 76px;
+      margin: 0 auto 1rem;
+      border-radius: var(--radius-xl);
+      background: #FFFFFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 25px -5px rgba(2, 132, 199, 0.25);
+      border: 1px solid var(--border-light);
+      padding: 10px;
+    ">
+      <img src="{% static 'travel/img/tabishio_icon.svg' %}" alt="たびしお" style="width: 100%; height: 100%; object-fit: contain;">
+    </div>
+
+    <div style="display: inline-block; background: #E0F2FE; color: #0369A1; padding: 0.25rem 0.85rem; border-radius: var(--radius-full); font-size: 0.75rem; font-weight: 700; margin-bottom: 0.5rem;">
+      メール認証付き安全登録
+    </div>
+    <h1 style="font-size: 1.75rem; font-weight: 900; letter-spacing: -0.02em; color: var(--text-main); margin: 0;">
+      たびしお アカウント登録
+    </h1>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.35rem;">
+      旅行のしおりを作成して、仲間とシェアしましょう
+    </p>
+  </div>
+
+  <!-- Register Card -->
+  <div style="background: #FFFFFF; border-radius: var(--radius-xl); padding: 2rem; box-shadow: var(--shadow-lg); border: 1px solid var(--border-light);">
+
+    {% if error_message %}
+    <div style="background: #FEF2F2; border: 1px solid #FCA5A5; color: #B91C1C; padding: 0.85rem 1rem; border-radius: var(--radius-md); font-size: 0.85rem; margin-bottom: 1.25rem; display: flex; align-items: flex-start; gap: 8px;">
+      <span style="font-size: 1rem;">⚠️</span>
+      <div>{{ error_message }}</div>
+    </div>
+    {% endif %}
+
+    <form method="POST" action="{% url 'travel:register' %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
+
+      <!-- ニックネーム -->
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label class="form-label" for="input-nickname" style="font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.4rem; display: block;">
+          お名前 / ニックネーム <span style="color: #EF4444;">*</span>
+        </label>
+        <input 
+          type="text" 
+          name="nickname" 
+          id="input-nickname"
+          class="form-input" 
+          required 
+          value="{{ form_data.nickname|default:'' }}"
+          placeholder="例: たびたろう、Yuki、旅好きファミリー"
+          style="font-size: 0.95rem; padding: 0.75rem 1rem; width: 100%; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-sizing: border-box;"
+        >
+      </div>
+
+      <!-- メールアドレス -->
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label class="form-label" for="input-email" style="font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.4rem; display: block;">
+          メールアドレス <span style="color: #EF4444;">*</span>
+        </label>
+        <input 
+          type="email" 
+          name="email" 
+          id="input-email"
+          class="form-input" 
+          required 
+          autocomplete="email"
+          value="{{ form_data.email|default:'' }}"
+          placeholder="例: travel@example.com"
+          style="font-size: 0.95rem; padding: 0.75rem 1rem; width: 100%; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-sizing: border-box;"
+        >
+        <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0.35rem 0 0;">
+          ※本登録用の確認リンクをこのアドレスに送信します
+        </p>
+      </div>
+
+      <!-- パスワード -->
+      <div class="form-group" style="margin-bottom: 1.25rem;">
+        <label class="form-label" for="input-password" style="font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.4rem; display: block;">
+          パスワード <span style="color: #EF4444;">*</span>
+        </label>
+        <input 
+          type="password" 
+          name="password" 
+          id="input-password"
+          class="form-input" 
+          required 
+          autocomplete="new-password"
+          placeholder="8文字以上の半角英数字"
+          style="font-size: 0.95rem; padding: 0.75rem 1rem; width: 100%; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-sizing: border-box;"
+        >
+      </div>
+
+      <!-- パスワード確認 -->
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label class="form-label" for="input-password2" style="font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.4rem; display: block;">
+          パスワード（再入力確認） <span style="color: #EF4444;">*</span>
+        </label>
+        <input 
+          type="password" 
+          name="password2" 
+          id="input-password2"
+          class="form-input" 
+          required 
+          autocomplete="new-password"
+          placeholder="もう一度パスワードを入力"
+          style="font-size: 0.95rem; padding: 0.75rem 1rem; width: 100%; border: 1px solid var(--border-light); border-radius: var(--radius-md); box-sizing: border-box;"
+        >
+      </div>
+
+      <!-- アバターカラー選択 -->
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label class="form-label" style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.5rem; display: block;">
+          アバターのテーマカラー
+        </label>
+        <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+          {% for color in colors %}
+          <label style="cursor: pointer;">
+            <input type="radio" name="avatar_color" value="{{ color.hex }}" {% if forloop.first %}checked{% endif %} style="display: none;" class="avatar-color-radio">
+            <div class="color-swatch" style="width: 32px; height: 32px; border-radius: 50%; background-color: {{ color.hex }}; display: flex; align-items: center; justify-content: center; border: 2px solid transparent; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.15s ease;" title="{{ color.name }}">
+              <span class="check-mark" style="color: #FFF; font-size: 14px; font-weight: bold; display: none;">✓</span>
+            </div>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- 送信ボタン -->
+      <button type="submit" class="btn-travel-new" style="width: 100%; justify-content: center; padding: 0.85rem; font-size: 1rem; font-weight: 700; border-radius: var(--radius-md); display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+        <span>✉️ 確認メールを送信して仮登録</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+      </button>
+    </form>
+
+    <!-- Login Link -->
+    <div style="margin-top: 1.75rem; text-align: center; border-top: 1px solid var(--border-light); padding-top: 1.25rem;">
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+        すでにアカウントをお持ちの方
+      </p>
+      <a href="{% url 'travel:login' %}{% if next %}?next={{ next }}{% endif %}" style="font-size: 0.9rem; font-weight: 700; color: #0284c7; text-decoration: none;">
+        ログインはこちら ➔
+      </a>
+    </div>
+
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.avatar-color-radio').forEach(radio => {
+  radio.addEventListener('change', updateColorSwatches);
+});
+
+function updateColorSwatches() {
+  document.querySelectorAll('.avatar-color-radio').forEach(radio => {
+    const swatch = radio.nextElementSibling;
+    const check = swatch.querySelector('.check-mark');
+    if (radio.checked) {
+      swatch.style.borderColor = '#0284c7';
+      swatch.style.transform = 'scale(1.15)';
+      check.style.display = 'block';
+    } else {
+      swatch.style.borderColor = 'transparent';
+      swatch.style.transform = 'scale(1.0)';
+      check.style.display = 'none';
+    }
+  });
+}
+updateColorSwatches();
+</script>
+{% endblock %}
