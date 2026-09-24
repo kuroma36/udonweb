@@ -1,6 +1,34 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import FoodCategory, FoodEntry
+from .models import FoodCategory, FoodEntry, FoodArticle
+
+
+@admin.register(FoodArticle)
+class FoodArticleAdmin(admin.ModelAdmin):
+    list_display = (
+        'title_preview',
+        'source_name',
+        'category_badge',
+        'published_at',
+        'time_ago',
+        'open_link',
+    )
+    list_filter = ('category', 'source_name', 'published_at')
+    search_fields = ('title', 'source_name', 'summary', 'keyword_query')
+    date_hierarchy = 'published_at'
+    readonly_fields = ('created_at',)
+
+    def title_preview(self, obj):
+        return obj.title[:50] + ('...' if len(obj.title) > 50 else '')
+    title_preview.short_description = '記事タイトル'
+
+    def category_badge(self, obj):
+        return f"{obj.category_icon} {obj.get_category_display()}"
+    category_badge.short_description = 'カテゴリ'
+
+    def open_link(self, obj):
+        return format_html('<a href="{}" target="_blank" rel="noopener">元記事を開く ↗</a>', obj.url)
+    open_link.short_description = '外部リンク'
 
 
 @admin.register(FoodCategory)
@@ -34,30 +62,11 @@ class FoodEntryAdmin(admin.ModelAdmin):
     date_hierarchy = 'start_date'
     readonly_fields = ('created_at', 'updated_at', 'thumbnail_large_preview')
 
-    fieldsets = (
-        ('基本情報', {
-            'fields': ('item_type', 'title', 'catchphrase', 'category', 'brand', 'description')
-        }),
-        ('価格・エリア / 会場', {
-            'fields': ('price_info', 'area_info', 'venue_name', 'venue_address')
-        }),
-        ('日程・掲載設定', {
-            'fields': ('start_date', 'end_date', 'is_period_limited', 'is_featured', 'is_published')
-        }),
-        ('画像・メディア', {
-            'fields': ('image', 'image_url', 'thumbnail_large_preview', 'official_url', 'tags')
-        }),
-        ('システム情報', {
-            'classes': ('collapse',),
-            'fields': ('created_at', 'updated_at')
-        }),
-    )
-
     def thumbnail_preview(self, obj):
         url = obj.effective_image_url
         if url:
             return format_html(
-                '<img src="{}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);" />',
+                '<img src="{}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px;" />',
                 url
             )
         icon = '🍔' if obj.item_type == 'product' else '🎪'

@@ -1,336 +1,193 @@
 {% extends 'food/base.html' %}
 {% load static %}
 
-{% block title %}モグミル (Mogumiru) - 食の新発売・グルメイベント速報{% endblock %}
+{% block title %}モグミル (Mogumiru) - Web食ニュース・新発売＆グルメイベント速報{% endblock %}
 
 {% block content %}
 <div class="food-container">
 
-  <!-- 🌟 ヒーローセクション -->
+  <!-- 🌟 ヒーローセクション（アグリゲーションサマリー） -->
   <section class="hero-section">
     <div class="hero-content">
-      <div class="hero-badge">🍁 2026年 秋のグルメ速報</div>
-      <h1 class="hero-title">今週の「美味しい」を、<br>逃さず見つける。</h1>
-      <p class="hero-subtitle">コンビニの秋スイーツや外食チェーンの限定メニュー、全国各地の物産展・フードフェスまで、食の最新トレンドをリアルタイムにお届けします。</p>
+      <div class="hero-badge">🌐 Web自動収集・リアルタイム食速報</div>
+      <h1 class="hero-title">いま話題の食ニュースと<br>新発売・イベントを一元集約。</h1>
+      <p class="hero-subtitle">大手グルメメディアや公式プレスリリースから、コンビニ秋の新作・外食限定メニュー・全国の物産展やフードフェス情報を自動巡回してリアルタイムにお届けします。</p>
       
-      <!-- クイックサマリーカード -->
+      <!-- 統計サマリー -->
       <div class="summary-stats">
-        <a href="?type=product" class="stat-card {% if current_type == 'product' %}active{% endif %}">
-          <span class="stat-icon">🍔</span>
+        <div class="stat-card">
+          <span class="stat-icon">📰</span>
           <div class="stat-info">
-            <span class="stat-num">{{ products_count }}</span>
-            <span class="stat-label">新発売・新商品</span>
+            <span class="stat-num">{{ total_articles }}</span>
+            <span class="stat-label">総収集記事数</span>
           </div>
-        </a>
-        <a href="?type=event" class="stat-card {% if current_type == 'event' %}active{% endif %}">
-          <span class="stat-icon">🎪</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">⚡</span>
           <div class="stat-info">
-            <span class="stat-num">{{ events_count }}</span>
-            <span class="stat-label">イベント・催事</span>
+            <span class="stat-num">{{ today_count }}</span>
+            <span class="stat-label">24時間以内の新着</span>
           </div>
-        </a>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">📡</span>
+          <div class="stat-info">
+            <span class="stat-num">{{ top_sources|length }}</span>
+            <span class="stat-label">主要配信メディア</span>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- 🔥 注目・ピックアップハイライト（存在する場合） -->
-  {% if featured_items and not query and not cat_slug %}
-  <section class="featured-section">
-    <div class="section-header">
-      <div class="section-title-wrap">
-        <span class="section-icon">🔥</span>
-        <h2 class="section-title">注目のピックアップ</h2>
-      </div>
-      <span class="section-subtitle">編集部が厳選した今チェックすべき話題の新作＆フェス</span>
+  <!-- 🧭 カテゴリタブバー -->
+  <section class="filter-section">
+    <div class="category-tabs-nav">
+      {% for cat in category_tabs %}
+        <a href="?cat={{ cat.id }}{% if current_source %}&source={{ current_source }}{% endif %}{% if query %}&q={{ query }}{% endif %}"
+           class="cat-tab-btn {% if current_cat == cat.id %}active{% endif %}">
+          <span class="cat-icon">{{ cat.icon }}</span>
+          <span class="cat-name">{{ cat.name }}</span>
+          <span class="cat-count">{{ cat.count }}</span>
+        </a>
+      {% endfor %}
     </div>
 
-    <div class="featured-grid">
-      {% for item in featured_items %}
-      <div class="featured-card card-item" data-id="{{ item.id }}" onclick="openModalFromCard(this)">
-        <div class="card-media">
-          {% if item.effective_image_url %}
-            <img src="{{ item.effective_image_url }}" alt="{{ item.title }}" loading="lazy" class="card-img">
-          {% else %}
-            <div class="card-img-placeholder pattern-{{ forloop.counter|divisibleby:3 }}">
-              <span class="placeholder-emoji">{% if item.item_type == 'product' %}🍔{% else %}🎪{% endif %}</span>
-            </div>
-          {% endif %}
-          
+    <!-- 絞り込みコントロールバー -->
+    <div class="controls-bar">
+      <!-- 配信元メディア絞り込み -->
+      <div class="source-filter-wrap">
+        <label for="sourceSelect">配信元メディア:</label>
+        <select id="sourceSelect" onchange="applySourceFilter(this.value)">
+          <option value="">すべてのメディア ({{ total_articles }})</option>
+          {% for s in top_sources %}
+            <option value="{{ s.source_name }}" {% if current_source == s.source_name %}selected{% endif %}>
+              {{ s.source_name }} ({{ s.c }})
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- 条件クリアボタン -->
+      {% if query or current_source or current_cat != 'all' %}
+      <div class="active-filter-pill">
+        <span>絞り込み中: 
+          {% if current_cat != 'all' %}<strong>カテゴリ</strong>{% endif %}
+          {% if current_source %}<strong>メディア: {{ current_source }}</strong>{% endif %}
+          {% if query %}<strong>「{{ query }}」</strong>{% endif %}
+        </span>
+        <a href="{% url 'food:index' %}" class="btn-clear-inline">クリア &times;</a>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- 📰 記事カード一覧グリッド -->
+  {% if articles %}
+  <section class="articles-grid">
+    {% for a in articles %}
+    <article class="article-card">
+      <div class="article-top-meta">
+        <span class="article-category-badge cat-{{ a.category }}">
+          {{ a.category_icon }} {{ a.get_category_display }}
+        </span>
+        <span class="article-source-tag">{{ a.source_name }}</span>
+        <span class="article-time-ago">🕒 {{ a.time_ago }}</span>
+      </div>
+
+      <h2 class="article-title">
+        <a href="{{ a.url }}" target="_blank" rel="noopener noreferrer">
+          {{ a.title }}
+        </a>
+      </h2>
+
+      {% if a.summary %}
+      <p class="article-summary">
+        {{ a.summary|truncatechars:120 }}
+      </p>
+      {% endif %}
+
+      <div class="article-footer">
+        <span class="article-date-sub">{{ a.published_at|date:"Y/n/j H:i" }}</span>
+        <a href="{{ a.url }}" target="_blank" rel="noopener noreferrer" class="btn-read-original">
+          元記事を読む ↗
+        </a>
+      </div>
+    </article>
+    {% endfor %}
+  </section>
+
+  <!-- 📄 ページネーション -->
+  {% if page_obj.has_other_pages %}
+  <nav class="pagination-nav">
+    {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}{% if current_cat %}&cat={{ current_cat }}{% endif %}{% if current_source %}&source={{ current_source }}{% endif %}{% if query %}&q={{ query }}{% endif %}" class="page-btn">&larr; 前へ</a>
+    {% endif %}
+
+    <span class="page-current">
+      {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} ページ
+    </span>
+
+    {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}{% if current_cat %}&cat={{ current_cat }}{% endif %}{% if current_source %}&source={{ current_source }}{% endif %}{% if query %}&q={{ query }}{% endif %}" class="page-btn">次へ &rarr;</a>
+    {% endif %}
+  </nav>
+  {% endif %}
+
+  {% else %}
+  <!-- 記事が見つからない場合 -->
+  <div class="empty-state">
+    <div class="empty-icon">🍽️</div>
+    <h3>該当する記事が見つかりませんでした</h3>
+    <p>キーワードや配信元メディア、カテゴリの絞り込み条件を変更してください。</p>
+    <div style="margin-top: 1rem;">
+      <button onclick="triggerNewsFetch()" class="btn-fetch-news" style="display: inline-flex;">
+        <span class="fetch-icon">🔄</span> Webから最新記事を収集する
+      </button>
+      <a href="{% url 'food:index' %}" class="btn-reset" style="margin-left: 0.5rem;">すべての記事を見る</a>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 🌟 編集部厳選の特集・シード情報（存在する場合） -->
+  {% if featured_entries and current_cat == 'all' and not query and not current_source %}
+  <section class="special-curation-section">
+    <div class="section-header">
+      <div class="section-title-wrap">
+        <span class="section-icon">✨</span>
+        <h2 class="section-title">編集部厳選！注目の秋グルメ＆催事特集</h2>
+      </div>
+      <span class="section-subtitle">編集部が厳選した今週必見の限定メニューと大型物産展</span>
+    </div>
+
+    <div class="special-grid">
+      {% for item in featured_entries %}
+      <div class="special-card">
+        <div class="special-meta">
           <span class="badge {{ item.status_info.badge_class }}" style="background-color: {{ item.status_info.color }};">
             {{ item.status_info.label }}
           </span>
-
-          <span class="type-pill {% if item.item_type == 'product' %}type-product{% else %}type-event{% endif %}">
-            {% if item.item_type == 'product' %}新商品{% else %}イベント{% endif %}
-          </span>
+          <span class="special-brand">{{ item.brand }}</span>
         </div>
-
-        <div class="card-body">
-          <div class="card-meta">
-            <span class="card-brand">{{ item.brand }}</span>
-            {% if item.category %}
-              <span class="card-category">{{ item.category.icon }} {{ item.category.name }}</span>
-            {% endif %}
-          </div>
-          <h3 class="card-title">{{ item.title }}</h3>
-          {% if item.catchphrase %}
-            <p class="card-catchphrase">{{ item.catchphrase }}</p>
+        <h3 class="special-title">{{ item.title }}</h3>
+        {% if item.catchphrase %}
+          <p class="special-catch">{{ item.catchphrase }}</p>
+        {% endif %}
+        <div class="special-info-row">
+          <span>📅 {{ item.start_date|date:"n/j" }}{% if item.end_date %} 〜 {{ item.end_date|date:"n/j" }}{% endif %}</span>
+          {% if item.price_info %}<span>🏷️ {{ item.price_info }}</span>{% endif %}
+        </div>
+        <div class="special-actions">
+          {% if item.official_url %}
+            <a href="{{ item.official_url }}" target="_blank" rel="noopener noreferrer" class="btn-special-link">公式サイト ↗</a>
           {% endif %}
-          
-          <div class="card-details-row">
-            <div class="detail-item">
-              <span class="detail-icon">📅</span>
-              <span class="detail-val">
-                {% if item.item_type == 'product' %}
-                  {{ item.start_date|date:"Y/n/j" }} 発売
-                {% else %}
-                  {{ item.start_date|date:"n/j" }}{% if item.end_date %} 〜 {{ item.end_date|date:"n/j" }}{% endif %}
-                {% endif %}
-              </span>
-            </div>
-            {% if item.price_info %}
-            <div class="detail-item">
-              <span class="detail-icon">🏷️</span>
-              <span class="detail-val">{{ item.price_info }}</span>
-            </div>
-            {% endif %}
-          </div>
+          <a href="{% url 'food:detail' item.id %}" class="btn-special-detail">詳細を見る &rarr;</a>
         </div>
-
-        <!-- 隠しデータ（モーダル用） -->
-        <script type="application/json" class="card-json-data">
-          {
-            "id": {{ item.id }},
-            "title": "{{ item.title|escapejs }}",
-            "type": "{{ item.get_item_type_display|escapejs }}",
-            "brand": "{{ item.brand|escapejs }}",
-            "category": "{{ item.category.name|default:''|escapejs }}",
-            "category_icon": "{{ item.category.icon|default:'🍽️'|escapejs }}",
-            "catchphrase": "{{ item.catchphrase|escapejs }}",
-            "description": "{{ item.description|escapejs }}",
-            "price": "{{ item.price_info|escapejs }}",
-            "area": "{{ item.area_info|escapejs }}",
-            "venue": "{{ item.venue_name|escapejs }}",
-            "venue_address": "{{ item.venue_address|escapejs }}",
-            "date_str": "{% if item.item_type == 'product' %}{{ item.start_date|date:'Y年n月j日' }} 発売{% else %}{{ item.start_date|date:'Y年n月j日' }}{% if item.end_date %} 〜 {{ item.end_date|date:'Y年n月j日' }}{% endif %}{% endif %}",
-            "status_label": "{{ item.status_info.label|escapejs }}",
-            "status_color": "{{ item.status_info.color|escapejs }}",
-            "image": "{{ item.effective_image_url|escapejs }}",
-            "official_url": "{{ item.official_url|escapejs }}",
-            "tags": [{% for t in item.tag_list %}"{{ t|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
-            "detail_url": "{% url 'food:detail' item.id %}"
-          }
-        </script>
       </div>
       {% endfor %}
     </div>
   </section>
   {% endif %}
-
-  <!-- 🧭 メインタイムライン・カード一覧 -->
-  <section class="main-list-section">
-    <!-- フィルタ・タブバー -->
-    <div class="filter-container">
-      <!-- 種別タブ -->
-      <div class="nav-tabs">
-        <a href="?type=all{% if cat_slug %}&cat={{ cat_slug }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}"
-           class="nav-tab {% if current_type == 'all' %}active{% endif %}">
-          すべて ({{ total_count }})
-        </a>
-        <a href="?type=product{% if cat_slug %}&cat={{ cat_slug }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}"
-           class="nav-tab {% if current_type == 'product' %}active{% endif %}">
-          🍔 新発売・新商品 ({{ products_count }})
-        </a>
-        <a href="?type=event{% if cat_slug %}&cat={{ cat_slug }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}"
-           class="nav-tab {% if current_type == 'event' %}active{% endif %}">
-          🎪 イベント・催事 ({{ events_count }})
-        </a>
-      </div>
-
-      <!-- サブフィルターバー -->
-      <div class="sub-filter-bar">
-        <!-- ステータスセレクト -->
-        <div class="status-pills">
-          <a href="?status=active{% if current_type %}&type={{ current_type }}{% endif %}{% if cat_slug %}&cat={{ cat_slug }}{% endif %}{% if query %}&q={{ query }}{% endif %}"
-             class="pill-link {% if status_filter == 'active' %}active{% endif %}">
-            🔥 今週発売・開催中
-          </a>
-          <a href="?status=upcoming{% if current_type %}&type={{ current_type }}{% endif %}{% if cat_slug %}&cat={{ cat_slug }}{% endif %}{% if query %}&q={{ query }}{% endif %}"
-             class="pill-link {% if status_filter == 'upcoming' %}active{% endif %}">
-            ⏳ 近日登場・開催予定
-          </a>
-          <a href="?status=all{% if current_type %}&type={{ current_type }}{% endif %}{% if cat_slug %}&cat={{ cat_slug }}{% endif %}{% if query %}&q={{ query }}{% endif %}"
-             class="pill-link {% if status_filter == 'all' %}active{% endif %}">
-            全期間
-          </a>
-        </div>
-
-        <!-- 並び順ソート -->
-        <div class="sort-selector">
-          <label for="sortSelect">並び順:</label>
-          <select id="sortSelect" onchange="applySort(this.value)">
-            <option value="default" {% if sort_by == 'default' %}selected{% endif %}>注目度・開催日順</option>
-            <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>日付が新しい順</option>
-            <option value="oldest" {% if sort_by == 'oldest' %}selected{% endif %}>日付が近い順</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- カテゴリチップス -->
-      <div class="category-chips-wrap">
-        <a href="?{% if current_type %}&type={{ current_type }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}"
-           class="category-chip {% if not cat_slug %}active{% endif %}">
-          全カテゴリ
-        </a>
-        {% for cat in categories %}
-          {% if current_type == 'all' or cat.item_type == 'all' or cat.item_type == current_type %}
-          <a href="?cat={{ cat.slug }}{% if current_type %}&type={{ current_type }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}"
-             class="category-chip {% if cat_slug == cat.slug %}active{% endif %}">
-            <span>{{ cat.icon }}</span> {{ cat.name }}
-          </a>
-          {% endif %}
-        {% endfor %}
-      </div>
-    </div>
-
-    <!-- 検索やフィルター適用中の通知バー -->
-    {% if query or cat_slug or current_type != 'all' or status_filter != 'active' %}
-    <div class="active-filter-alert">
-      <div class="alert-text">
-        <span>条件適用中:</span>
-        {% if query %}<strong>キーワード「{{ query }}」</strong>{% endif %}
-        {% if current_category %}<strong>カテゴリ「{{ current_category.icon }} {{ current_category.name }}」</strong>{% endif %}
-        {% if current_type != 'all' %}<strong>種別「{% if current_type == 'product' %}新商品{% else %}イベント{% endif %}」</strong>{% endif %}
-        {% if status_filter == 'upcoming' %}<strong>「近日登場・開催予定」</strong>{% elif status_filter == 'all' %}<strong>「全期間」</strong>{% endif %}
-        （該当 <strong>{{ total_count }}</strong> 件）
-      </div>
-      <a href="{% url 'food:index' %}" class="btn-clear-filters">条件をクリア</a>
-    </div>
-    {% endif %}
-
-    <!-- カード一覧グリッド -->
-    {% if items %}
-    <div class="items-grid">
-      {% for item in items %}
-      <div class="item-card card-item" data-id="{{ item.id }}" onclick="openModalFromCard(this)">
-        <div class="card-media">
-          {% if item.effective_image_url %}
-            <img src="{{ item.effective_image_url }}" alt="{{ item.title }}" loading="lazy" class="card-img">
-          {% else %}
-            <div class="card-img-placeholder pattern-{{ forloop.counter|divisibleby:4 }}">
-              <span class="placeholder-emoji">{% if item.item_type == 'product' %}🍔{% else %}🎪{% endif %}</span>
-            </div>
-          {% endif %}
-
-          <span class="badge {{ item.status_info.badge_class }}" style="background-color: {{ item.status_info.color }};">
-            {{ item.status_info.label }}
-          </span>
-
-          <span class="type-pill {% if item.item_type == 'product' %}type-product{% else %}type-event{% endif %}">
-            {% if item.item_type == 'product' %}新商品{% else %}イベント{% endif %}
-          </span>
-
-          {% if item.is_featured %}
-            <span class="featured-star" title="注目ピックアップ">★</span>
-          {% endif %}
-        </div>
-
-        <div class="card-body">
-          <div class="card-meta">
-            <span class="card-brand">{{ item.brand }}</span>
-            {% if item.category %}
-              <span class="card-category">{{ item.category.icon }} {{ item.category.name }}</span>
-            {% endif %}
-          </div>
-
-          <h3 class="card-title">{{ item.title }}</h3>
-          
-          {% if item.catchphrase %}
-            <p class="card-catchphrase">{{ item.catchphrase }}</p>
-          {% endif %}
-
-          <div class="card-meta-list">
-            <div class="meta-row">
-              <span class="meta-icon">📅</span>
-              <span class="meta-text">
-                {% if item.item_type == 'product' %}
-                  {{ item.start_date|date:"Y/n/j" }} 発売
-                  {% if item.end_date %}（〜{{ item.end_date|date:"n/j" }}）{% endif %}
-                {% else %}
-                  {{ item.start_date|date:"n/j" }}{% if item.end_date %} 〜 {{ item.end_date|date:"n/j" }}{% endif %}
-                {% endif %}
-              </span>
-            </div>
-
-            {% if item.price_info %}
-            <div class="meta-row">
-              <span class="meta-icon">🏷️</span>
-              <span class="meta-text">{{ item.price_info }}</span>
-            </div>
-            {% endif %}
-
-            {% if item.item_type == 'event' and item.venue_name %}
-            <div class="meta-row">
-              <span class="meta-icon">📍</span>
-              <span class="meta-text">{{ item.venue_name }}</span>
-            </div>
-            {% elif item.area_info %}
-            <div class="meta-row">
-              <span class="meta-icon">🗺️</span>
-              <span class="meta-text">{{ item.area_info }}</span>
-            </div>
-            {% endif %}
-          </div>
-
-          {% if item.tag_list %}
-          <div class="card-tags">
-            {% for t in item.tag_list|slice:":3" %}
-              <span class="tag-pill">#{{ t }}</span>
-            {% endfor %}
-          </div>
-          {% endif %}
-        </div>
-
-        <div class="card-footer">
-          <span class="btn-card-detail">詳細・プレビュー &rarr;</span>
-        </div>
-
-        <!-- 隠しデータ（モーダル用） -->
-        <script type="application/json" class="card-json-data">
-          {
-            "id": {{ item.id }},
-            "title": "{{ item.title|escapejs }}",
-            "type": "{{ item.get_item_type_display|escapejs }}",
-            "brand": "{{ item.brand|escapejs }}",
-            "category": "{{ item.category.name|default:''|escapejs }}",
-            "category_icon": "{{ item.category.icon|default:'🍽️'|escapejs }}",
-            "catchphrase": "{{ item.catchphrase|escapejs }}",
-            "description": "{{ item.description|escapejs }}",
-            "price": "{{ item.price_info|escapejs }}",
-            "area": "{{ item.area_info|escapejs }}",
-            "venue": "{{ item.venue_name|escapejs }}",
-            "venue_address": "{{ item.venue_address|escapejs }}",
-            "date_str": "{% if item.item_type == 'product' %}{{ item.start_date|date:'Y年n月j日' }} 発売{% else %}{{ item.start_date|date:'Y年n月j日' }}{% if item.end_date %} 〜 {{ item.end_date|date:'Y年n月j日' }}{% endif %}{% endif %}",
-            "status_label": "{{ item.status_info.label|escapejs }}",
-            "status_color": "{{ item.status_info.color|escapejs }}",
-            "image": "{{ item.effective_image_url|escapejs }}",
-            "official_url": "{{ item.official_url|escapejs }}",
-            "tags": [{% for t in item.tag_list %}"{{ t|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
-            "detail_url": "{% url 'food:detail' item.id %}"
-          }
-        </script>
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <div class="empty-state">
-      <div class="empty-icon">🍽️</div>
-      <h3>該当する情報が見つかりませんでした</h3>
-      <p>検索条件やカテゴリ、期間フィルターを変更してお試しください。</p>
-      <a href="{% url 'food:index' %}" class="btn-reset">すべての食情報を見る</a>
-    </div>
-    {% endif %}
-  </section>
 
 </div>
 {% endblock %}
