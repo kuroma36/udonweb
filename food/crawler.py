@@ -4,6 +4,7 @@ import requests
 import feedparser
 from datetime import datetime, timezone as dt_timezone
 from django.utils import timezone
+from django.db import IntegrityError
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from googlenewsdecoder import gnewsdecoder
@@ -80,47 +81,68 @@ def clean_summary_html(html_text):
     return re.sub(r'\s+', ' ', text)
 
 
-def resolve_single_ogp_image(article):
-    """単一記事の正規URL解決およびOGP画像取得"""
-    if article.image_url:
-        return False
-
-    real_url = article.url
-    if 'news.google.com' in article.url:
+def resolve_real_url(link):
+    """Google News URL等を正規の実URLにデコード"""
+    if 'news.google.com' in link:
         try:
-            dec = gnewsdecoder(article.url)
-            decoded = dec.get('decoded_url') if isinstance(dec, dict) else dec
-            if decoded and decoded.startswith('http'):
-                real_url = decoded
+            dec = gnewsdecoder(link)
+            d = dec.get('decoded_url') if isinstance(dec, dict) else dec
+            if d and d.startswith('http'):
+                return d
         except Exception:
             pass
+    return link
 
-    img_url = ''
+
+def fetch_ogp_image(url):
+    """実URLから OGP 画像を取得"""
+    if not url or not url.startswith('http'):
+        return ''
     try:
-        r = requests.get(real_url, headers=HEADERS, timeout=5)
+        r = requests.get(url, headers=HEADERS, timeout=4)
         if r.status_code == 200:
             soup = BeautifulSoup(r.text, 'html.parser')
             og = soup.find('meta', property='og:image')
             if og and og.get('content') and og['content'].startswith('http'):
-                img_url = og['content']
+                return og['content']
     except Exception:
         pass
+    return ''
 
-    if img_url or real_url != article.url:
-        article.image_url = img_url
-        article.url = real_url
-        article.save(update_fields=['image_url', 'url'])
-        return True
 
-    return False
+def resolve_entry_network(entry_data):
+    """
+    1件のエントリーの正規URL解決とOGP画像取得（ネットワークI/O処理）
+    ※ DBアクセスは一切行わないため、スレッドセーフかつSQLiteのロック競合を起こさない
+    """
+    raw_title = entry_data['title']
+    link = entry_data['link']
+    q_name = entry_data['query']
+    default_cat = entry_data['default_cat']
+    pub_dt = entry_data['pub_dt']
+    summary = entry_data['summary']
+    source_name = entry_data['source_name']
+
+    real_url = resolve_real_url(link)
+    cat = classify_category(raw_title, default_cat=default_cat)
+    img_url = fetch_ogp_image(real_url)
+
+    return {
+        'title': raw_title,
+        'url': real_url,
+        'source_name': source_name,
+        'category': cat,
+        'summary': summary,
+        'image_url': img_url,
+        'published_at': pub_dt,
+        'keyword_query': q_name,
+    }
 
 
 def fetch_all_food_news():
-    """Webから最新の食ニュース記事を一括収集してDBに保存（OGP画像も並列取得）"""
-    total_found = 0
-    created_count = 0
-    updated_count = 0
-    newly_created_articles = []
+    """Webから最新の食ニュース記事を一括収集してDBに安全に保存"""
+    raw_entries = []
+    seen_links = set()
 
     for feed_info in FEED_SOURCES:
         q_name = feed_info['query']
@@ -133,21 +155,18 @@ def fetch_all_food_news():
                 continue
 
             feed = feedparser.parse(resp.content)
-            entries = feed.entries
-
-            for e in entries:
+            for e in feed.entries:
                 raw_title = e.get('title', '').strip()
                 link = e.get('link', '').strip()
-                if not raw_title or not link:
+                if not raw_title or not link or link in seen_links:
                     continue
 
-                total_found += 1
+                seen_links.add(link)
 
-                # 配信元メディア名の抽出
                 source_name = ''
                 if hasattr(e, 'source') and isinstance(e.source, dict) and e.source.get('title'):
                     source_name = e.source.title.strip()
-                
+
                 clean_title = raw_title
                 if ' - ' in raw_title:
                     parts = raw_title.rsplit(' - ', 1)
@@ -158,47 +177,76 @@ def fetch_all_food_news():
                 if not source_name:
                     source_name = 'Webニュース'
 
-                # 公開日時のパース
-                published_at = timezone.now()
+                pub_dt = timezone.now()
                 if hasattr(e, 'published_parsed') and e.published_parsed:
-                    published_at = datetime.fromtimestamp(time.mktime(e.published_parsed), tz=dt_timezone.utc)
+                    pub_dt = datetime.fromtimestamp(time.mktime(e.published_parsed), tz=dt_timezone.utc)
 
-                # カテゴリ判定
-                cat = classify_category(clean_title, default_cat=default_cat)
-
-                # 要約の取得
                 summary = clean_summary_html(e.get('summary', ''))
 
-                # DB保存
-                article, is_created = FoodArticle.objects.update_or_create(
-                    url=link,
-                    defaults={
-                        'title': clean_title,
-                        'source_name': source_name,
-                        'category': cat,
-                        'summary': summary,
-                        'published_at': published_at,
-                        'keyword_query': q_name,
-                    }
-                )
-
-                if is_created:
-                    created_count += 1
-                    newly_created_articles.append(article)
-                else:
-                    updated_count += 1
-
+                raw_entries.append({
+                    'title': clean_title,
+                    'link': link,
+                    'query': q_name,
+                    'default_cat': default_cat,
+                    'pub_dt': pub_dt,
+                    'summary': summary,
+                    'source_name': source_name,
+                })
         except Exception as err:
             print(f"Error fetching feed for '{q_name}': {err}")
 
-    # 画像が未設定の記事を並列でOGP画像取得（最大15並列）
-    target_articles = newly_created_articles or list(FoodArticle.objects.filter(image_url='')[:40])
-    if target_articles:
-        with ThreadPoolExecutor(max_workers=12) as executor:
-            list(executor.map(resolve_single_ogp_image, target_articles))
+    # 1. ネットワークI/O処理（URLデコード＆OGP画像取得）をマルチスレッドで並列実行（DBアクセスなし）
+    resolved_entries = []
+    with ThreadPoolExecutor(max_workers=12) as executor:
+        results = executor.map(resolve_entry_network, raw_entries)
+        for res in results:
+            resolved_entries.append(res)
+
+    # 2. メインスレッド（直列）でDBへの安全な更新・作成
+    created_count = 0
+    updated_count = 0
+    seen_real_urls = set()
+
+    # 既存の全URLを取得（検索高速化）
+    existing_articles = {a.url: a for a in FoodArticle.objects.all()}
+
+    for item in resolved_entries:
+        real_url = item['url']
+        if not real_url or real_url in seen_real_urls:
+            continue
+        seen_real_urls.add(real_url)
+
+        if real_url in existing_articles:
+            existing = existing_articles[real_url]
+            # 既存記事で画像が未設定かつ新しく画像が取得できた場合は補完
+            if not existing.image_url and item['image_url']:
+                existing.image_url = item['image_url']
+                try:
+                    existing.save(update_fields=['image_url'])
+                    updated_count += 1
+                except Exception:
+                    pass
+        else:
+            try:
+                FoodArticle.objects.create(
+                    title=item['title'],
+                    url=real_url,
+                    source_name=item['source_name'],
+                    category=item['category'],
+                    summary=item['summary'],
+                    image_url=item['image_url'],
+                    published_at=item['published_at'],
+                    keyword_query=item['keyword_query'],
+                )
+                created_count += 1
+            except IntegrityError:
+                # 万が一の重複制約違反も安全にスキップ
+                pass
+            except Exception as e:
+                print(f"Error saving article {real_url}: {e}")
 
     return {
-        'total_found': total_found,
+        'total_found': len(raw_entries),
         'created_count': created_count,
         'updated_count': updated_count,
     }
