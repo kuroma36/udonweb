@@ -1,0 +1,207 @@
+{% extends 'food/base.html' %}
+{% load static %}
+
+{% block title %}{{ item.title }} - モグミル (Mogumiru){% endblock %}
+
+{% block content %}
+<div class="food-container detail-page-container">
+
+  <!-- パンくずナビ -->
+  <nav class="breadcrumb-nav">
+    <a href="{% url 'food:index' %}">モグミルトップ</a>
+    <span class="separator">&rsaquo;</span>
+    {% if item.category %}
+      <a href="{% url 'food:index' %}?cat={{ item.category.slug }}">{{ item.category.icon }} {{ item.category.name }}</a>
+      <span class="separator">&rsaquo;</span>
+    {% endif %}
+    <span class="current">{{ item.title|truncatechars:25 }}</span>
+  </nav>
+
+  <article class="detail-article">
+    <div class="detail-header-card">
+      <div class="detail-media-wrap">
+        {% if item.effective_image_url %}
+          <img src="{{ item.effective_image_url }}" alt="{{ item.title }}" class="detail-img">
+        {% else %}
+          <div class="detail-img-placeholder">
+            <span class="detail-placeholder-emoji">{% if item.item_type == 'product' %}🍔{% else %}🎪{% endif %}</span>
+          </div>
+        {% endif %}
+        
+        <div class="media-badges">
+          <span class="badge {{ item.status_info.badge_class }}" style="background-color: {{ item.status_info.color }};">
+            {{ item.status_info.label }}
+          </span>
+          <span class="type-pill {% if item.item_type == 'product' %}type-product{% else %}type-event{% endif %}">
+            {% if item.item_type == 'product' %}新発売・新商品{% else %}グルメイベント・催事{% endif %}
+          </span>
+        </div>
+      </div>
+
+      <div class="detail-primary-info">
+        <div class="detail-brand-meta">
+          <span class="detail-brand-name">{{ item.brand }}</span>
+          {% if item.category %}
+            <span class="detail-category-tag">{{ item.category.icon }} {{ item.category.name }}</span>
+          {% endif %}
+        </div>
+
+        <h1 class="detail-title">{{ item.title }}</h1>
+
+        {% if item.catchphrase %}
+          <p class="detail-catchphrase">{{ item.catchphrase }}</p>
+        {% endif %}
+
+        <!-- スペックグリッド -->
+        <div class="spec-grid">
+          <div class="spec-card">
+            <span class="spec-label">📅 日程</span>
+            <span class="spec-value">
+              {% if item.item_type == 'product' %}
+                {{ item.start_date|date:"Y年n月j日" }} 発売
+                {% if item.end_date %}（〜{{ item.end_date|date:"n月j日" }}終了予定）{% endif %}
+              {% else %}
+                {{ item.start_date|date:"Y年n月j日" }}{% if item.end_date %} 〜 {{ item.end_date|date:"Y年n月j日" }}{% endif %}
+              {% endif %}
+            </span>
+          </div>
+
+          {% if item.price_info %}
+          <div class="spec-card">
+            <span class="spec-label">🏷️ 価格 / 入場料</span>
+            <span class="spec-value highlight-price">{{ item.price_info }}</span>
+          </div>
+          {% endif %}
+
+          {% if item.area_info %}
+          <div class="spec-card">
+            <span class="spec-label">🗺️ エリア / 販売地域</span>
+            <span class="spec-value">{{ item.area_info }}</span>
+          </div>
+          {% endif %}
+
+          {% if item.venue_name %}
+          <div class="spec-card">
+            <span class="spec-label">📍 会場</span>
+            <span class="spec-value">
+              {{ item.venue_name }}
+              {% if item.venue_address %}
+                <small class="venue-address">{{ item.venue_address }}</small>
+              {% endif %}
+            </span>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- アクションボタン -->
+        <div class="detail-actions">
+          {% if item.official_url %}
+            <a href="{{ item.official_url }}" target="_blank" rel="noopener noreferrer" class="btn-primary-action">
+              <span>🌐</span> 公式サイト・詳細を見る
+            </a>
+          {% endif %}
+
+          {% if item.venue_name or item.venue_address %}
+            <a href="https://www.google.com/maps/search/?api=1&query={{ item.venue_address|default:item.venue_name|urlencode }}" target="_blank" rel="noopener noreferrer" class="btn-secondary-action">
+              <span>📍</span> Googleマップで会場を開く
+            </a>
+          {% endif %}
+
+          <a href="/admin/food/foodentry/{{ item.id }}/change/" class="btn-edit-action" title="管理画面で編集">
+            <span>✏️</span> 編集
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 詳細説明文 -->
+    <div class="detail-body-card">
+      <h2 class="section-h2">商品・イベントの詳細</h2>
+      <div class="description-text">
+        {{ item.description|linebreaks }}
+      </div>
+
+      {% if item.tag_list %}
+      <div class="detail-tags-section">
+        <h3 class="tags-heading">関連タグ</h3>
+        <div class="tags-wrap">
+          {% for t in item.tag_list %}
+            <a href="{% url 'food:index' %}?q={{ t|urlencode }}" class="detail-tag-pill">#{{ t }}</a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- 関連商品・イベント -->
+    {% if related_items %}
+    <section class="related-section">
+      <h2 class="section-h2">こちらも注目</h2>
+      <div class="items-grid">
+        {% for rel in related_items %}
+        <div class="item-card card-item" data-id="{{ rel.id }}" onclick="openModalFromCard(this)">
+          <div class="card-media">
+            {% if rel.effective_image_url %}
+              <img src="{{ rel.effective_image_url }}" alt="{{ rel.title }}" loading="lazy" class="card-img">
+            {% else %}
+              <div class="card-img-placeholder pattern-{{ forloop.counter|divisibleby:3 }}">
+                <span class="placeholder-emoji">{% if rel.item_type == 'product' %}🍔{% else %}🎪{% endif %}</span>
+              </div>
+            {% endif %}
+            <span class="badge {{ rel.status_info.badge_class }}" style="background-color: {{ rel.status_info.color }};">
+              {{ rel.status_info.label }}
+            </span>
+          </div>
+          <div class="card-body">
+            <span class="card-brand">{{ rel.brand }}</span>
+            <h3 class="card-title">{{ rel.title }}</h3>
+            <div class="card-meta-list">
+              <div class="meta-row">
+                <span class="meta-icon">📅</span>
+                <span class="meta-text">{{ rel.start_date|date:"n/j" }}</span>
+              </div>
+              {% if rel.price_info %}
+              <div class="meta-row">
+                <span class="meta-icon">🏷️</span>
+                <span class="meta-text">{{ rel.price_info }}</span>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          <!-- 隠しデータ -->
+          <script type="application/json" class="card-json-data">
+            {
+              "id": {{ rel.id }},
+              "title": "{{ rel.title|escapejs }}",
+              "type": "{{ rel.get_item_type_display|escapejs }}",
+              "brand": "{{ rel.brand|escapejs }}",
+              "category": "{{ rel.category.name|default:''|escapejs }}",
+              "category_icon": "{{ rel.category.icon|default:'🍽️'|escapejs }}",
+              "catchphrase": "{{ rel.catchphrase|escapejs }}",
+              "description": "{{ rel.description|escapejs }}",
+              "price": "{{ rel.price_info|escapejs }}",
+              "area": "{{ rel.area_info|escapejs }}",
+              "venue": "{{ rel.venue_name|escapejs }}",
+              "venue_address": "{{ rel.venue_address|escapejs }}",
+              "date_str": "{% if rel.item_type == 'product' %}{{ rel.start_date|date:'Y年n月j日' }} 発売{% else %}{{ rel.start_date|date:'Y年n月j日' }}{% if rel.end_date %} 〜 {{ rel.end_date|date:'Y年n月j日' }}{% endif %}{% endif %}",
+              "status_label": "{{ rel.status_info.label|escapejs }}",
+              "status_color": "{{ rel.status_info.color|escapejs }}",
+              "image": "{{ rel.effective_image_url|escapejs }}",
+              "official_url": "{{ rel.official_url|escapejs }}",
+              "tags": [{% for t in rel.tag_list %}"{{ t|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+              "detail_url": "{% url 'food:detail' rel.id %}"
+            }
+          </script>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <div class="bottom-back-wrap">
+      <a href="{% url 'food:index' %}" class="btn-back">&larr; 一覧に戻る</a>
+    </div>
+  </article>
+
+</div>
+{% endblock %}

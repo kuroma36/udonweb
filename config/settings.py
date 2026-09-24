@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'udon',
     'travel.apps.TravelConfig',
     'pomodoro.apps.PomodoroConfig',
+    'food.apps.FoodConfig',
 ]
 
 MIDDLEWARE = [

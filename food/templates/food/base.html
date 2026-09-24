@@ -1,0 +1,124 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}モグミル (Mogumiru) - 食の新発売・グルメイベント速報{% endblock %}</title>
+  
+  <!-- Google Fonts: Inter & Noto Sans JP -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Noto+Sans+JP:wght@400;500;700;800&display=swap" rel="stylesheet">
+  
+  <!-- CSS -->
+  <link rel="stylesheet" href="{% static 'food/css/style.css' %}?v=20260924_1">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+  <!-- 🌐 グローバルポータルヘッダー（krmts.com 共通サービスナビ） -->
+  <header class="global-portal-bar">
+    <div class="portal-inner">
+      <div class="portal-brand">
+        <span class="portal-domain">krmts.com</span>
+        <span class="portal-badge">Service Suite</span>
+      </div>
+      <nav class="portal-nav">
+        <a href="/food/" class="portal-link active">🍽️ モグミル (食速報)</a>
+        <a href="/udon/" class="portal-link">🍜 うどん人</a>
+        <a href="/travel/" class="portal-link">🗺️ たびしお</a>
+        <a href="/pomodoro/" class="portal-link">🍅 Pomodoro</a>
+        <a href="/mrtg/" class="portal-link">📊 MRTG</a>
+        <a href="/admin/" class="portal-link portal-link-admin">⚙️ 管理サイト</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- 🍽️ モグミル メインヘッダー -->
+  <header class="mogumiru-header">
+    <div class="header-inner">
+      <a href="{% url 'food:index' %}" class="mogumiru-brand">
+        <div class="brand-icon-wrap">
+          <span class="brand-icon">🍴</span>
+        </div>
+        <div class="brand-text">
+          <span class="brand-title">モグミル</span>
+          <span class="brand-tagline">食の新発売＆グルメイベント速報</span>
+        </div>
+      </a>
+
+      <!-- 検索・クイックアクセス -->
+      <div class="header-tools">
+        <form action="{% url 'food:index' %}" method="get" class="header-search-form">
+          <span class="search-icon">🔍</span>
+          <input type="text" name="q" value="{{ query|default:'' }}" placeholder="商品名、コンビニ、フェス名、地域などで検索..." class="header-search-input">
+          {% if current_type and current_type != 'all' %}
+            <input type="hidden" name="type" value="{{ current_type }}">
+          {% endif %}
+          {% if cat_slug %}
+            <input type="hidden" name="cat" value="{{ cat_slug }}">
+          {% endif %}
+        </form>
+
+        <a href="/admin/food/foodentry/add/" class="btn-add-food" title="管理画面で新しい商品・イベントを登録">
+          <span>＋</span> 情報を登録
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- メインコンテンツ -->
+  <main class="main-content-wrap">
+    {% block content %}
+    {% endblock %}
+  </main>
+
+  <!-- 汎用詳細モーダル -->
+  <div id="itemModal" class="modal-overlay" style="display: none;" onclick="closeModal(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <button class="modal-close-btn" onclick="closeModal()">&times;</button>
+      <div id="modalBody" class="modal-body-content">
+        <!-- JSで動的生成 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- フッター -->
+  <footer class="mogumiru-footer">
+    <div class="footer-inner">
+      <div class="footer-top">
+        <div class="footer-brand-info">
+          <div class="footer-logo">🍽️ モグミル (Mogumiru)</div>
+          <p class="footer-desc">コンビニや外食チェーンの新作メニュー、注目のスイーツ・飲料から全国の物産展・フードフェスまで、毎日の「美味しい！」が見つかる食のトレンド速報プラットフォーム。</p>
+        </div>
+        <div class="footer-links-group">
+          <h4>プラットフォーム</h4>
+          <ul>
+            <li><a href="/food/">モグミル トップ</a></li>
+            <li><a href="/food/?type=product">新発売・新商品一覧</a></li>
+            <li><a href="/food/?type=event">イベント・フェス一覧</a></li>
+            <li><a href="/admin/food/foodentry/">データ管理（Admin）</a></li>
+          </ul>
+        </div>
+        <div class="footer-links-group">
+          <h4>連携サービス</h4>
+          <ul>
+            <li><a href="/udon/">讃岐うどん巡礼システム</a></li>
+            <li><a href="/travel/">たびしお (旅のしおり)</a></li>
+            <li><a href="/pomodoro/">Pomodoro Focus</a></li>
+            <li><a href="/mrtg/">サーバーリソース監視</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2026 krmts.com &middot; Powered by Django 6.1 & さくらのVPS</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="{% static 'food/js/main.js' %}?v=20260924_1"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
