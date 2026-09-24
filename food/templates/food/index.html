@@ -11,7 +11,7 @@
     <div class="hero-content">
       <div class="hero-badge">🌐 Web自動収集・リアルタイム食速報</div>
       <h1 class="hero-title">いま話題の食ニュースと<br>新発売・イベントを一元集約。</h1>
-      <p class="hero-subtitle">大手グルメメディアや公式プレスリリースから、コンビニ秋の新作・外食限定メニュー・全国の物産展やフードフェス情報を自動巡回してリアルタイムにお届けします。</p>
+      <p class="hero-subtitle">大手グルメメディアや公式プレスリリースから、コンビニ秋の新作・外食限定メニュー・全国の物産展やフードフェス情報を自動巡回して、画像付きでリアルタイムにお届けします。</p>
       
       <!-- 統計サマリー -->
       <div class="summary-stats">
@@ -82,37 +82,56 @@
     </div>
   </section>
 
-  <!-- 📰 記事カード一覧グリッド -->
+  <!-- 📰 記事カード一覧グリッド (サムネイル画像付き) -->
   {% if articles %}
   <section class="articles-grid">
     {% for a in articles %}
     <article class="article-card">
-      <div class="article-top-meta">
+      
+      <!-- サムネイル画像エリア -->
+      <div class="article-media-wrap">
+        {% if a.image_url %}
+          <img src="{{ a.image_url }}" alt="{{ a.title }}" loading="lazy" class="article-thumb-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+          <div class="article-placeholder-fallback cat-bg-{{ a.category }}" style="display: none;">
+            <span class="placeholder-icon">{{ a.category_icon }}</span>
+          </div>
+        {% else %}
+          <div class="article-placeholder-fallback cat-bg-{{ a.category }}">
+            <span class="placeholder-icon">{{ a.category_icon }}</span>
+          </div>
+        {% endif %}
+
         <span class="article-category-badge cat-{{ a.category }}">
           {{ a.category_icon }} {{ a.get_category_display }}
         </span>
-        <span class="article-source-tag">{{ a.source_name }}</span>
-        <span class="article-time-ago">🕒 {{ a.time_ago }}</span>
       </div>
 
-      <h2 class="article-title">
-        <a href="{{ a.url }}" target="_blank" rel="noopener noreferrer">
-          {{ a.title }}
-        </a>
-      </h2>
+      <div class="article-content-body">
+        <div class="article-top-meta">
+          <span class="article-source-tag">{{ a.source_name }}</span>
+          <span class="article-time-ago">🕒 {{ a.time_ago }}</span>
+        </div>
 
-      {% if a.summary %}
-      <p class="article-summary">
-        {{ a.summary|truncatechars:120 }}
-      </p>
-      {% endif %}
+        <h2 class="article-title">
+          <a href="{{ a.url }}" target="_blank" rel="noopener noreferrer">
+            {{ a.title }}
+          </a>
+        </h2>
 
-      <div class="article-footer">
-        <span class="article-date-sub">{{ a.published_at|date:"Y/n/j H:i" }}</span>
-        <a href="{{ a.url }}" target="_blank" rel="noopener noreferrer" class="btn-read-original">
-          元記事を読む ↗
-        </a>
+        {% if a.summary %}
+        <p class="article-summary">
+          {{ a.summary|truncatechars:95 }}
+        </p>
+        {% endif %}
+
+        <div class="article-footer">
+          <span class="article-date-sub">{{ a.published_at|date:"n/j H:i" }}</span>
+          <a href="{{ a.url }}" target="_blank" rel="noopener noreferrer" class="btn-read-original">
+            元記事を読む ↗
+          </a>
+        </div>
       </div>
+
     </article>
     {% endfor %}
   </section>

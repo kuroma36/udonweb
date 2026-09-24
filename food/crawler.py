@@ -5,6 +5,8 @@ import feedparser
 from datetime import datetime, timezone as dt_timezone
 from django.utils import timezone
 from bs4 import BeautifulSoup
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from googlenewsdecoder import gnewsdecoder
 from .models import FoodArticle
 
 # クローリング対象のフィード定義
@@ -78,11 +80,47 @@ def clean_summary_html(html_text):
     return re.sub(r'\s+', ' ', text)
 
 
+def resolve_single_ogp_image(article):
+    """単一記事の正規URL解決およびOGP画像取得"""
+    if article.image_url:
+        return False
+
+    real_url = article.url
+    if 'news.google.com' in article.url:
+        try:
+            dec = gnewsdecoder(article.url)
+            decoded = dec.get('decoded_url') if isinstance(dec, dict) else dec
+            if decoded and decoded.startswith('http'):
+                real_url = decoded
+        except Exception:
+            pass
+
+    img_url = ''
+    try:
+        r = requests.get(real_url, headers=HEADERS, timeout=5)
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.text, 'html.parser')
+            og = soup.find('meta', property='og:image')
+            if og and og.get('content') and og['content'].startswith('http'):
+                img_url = og['content']
+    except Exception:
+        pass
+
+    if img_url or real_url != article.url:
+        article.image_url = img_url
+        article.url = real_url
+        article.save(update_fields=['image_url', 'url'])
+        return True
+
+    return False
+
+
 def fetch_all_food_news():
-    """Webから最新の食ニュース記事を一括収集してDBに保存"""
+    """Webから最新の食ニュース記事を一括収集してDBに保存（OGP画像も並列取得）"""
     total_found = 0
     created_count = 0
     updated_count = 0
+    newly_created_articles = []
 
     for feed_info in FEED_SOURCES:
         q_name = feed_info['query']
@@ -105,7 +143,7 @@ def fetch_all_food_news():
 
                 total_found += 1
 
-                # 配信元メディア名の抽出（「タイトル - 媒体名」形式）
+                # 配信元メディア名の抽出
                 source_name = ''
                 if hasattr(e, 'source') and isinstance(e.source, dict) and e.source.get('title'):
                     source_name = e.source.title.strip()
@@ -131,7 +169,7 @@ def fetch_all_food_news():
                 # 要約の取得
                 summary = clean_summary_html(e.get('summary', ''))
 
-                # DB保存（URLでユニーク重複チェック）
+                # DB保存
                 article, is_created = FoodArticle.objects.update_or_create(
                     url=link,
                     defaults={
@@ -146,11 +184,18 @@ def fetch_all_food_news():
 
                 if is_created:
                     created_count += 1
+                    newly_created_articles.append(article)
                 else:
                     updated_count += 1
 
         except Exception as err:
             print(f"Error fetching feed for '{q_name}': {err}")
+
+    # 画像が未設定の記事を並列でOGP画像取得（最大15並列）
+    target_articles = newly_created_articles or list(FoodArticle.objects.filter(image_url='')[:40])
+    if target_articles:
+        with ThreadPoolExecutor(max_workers=12) as executor:
+            list(executor.map(resolve_single_ogp_image, target_articles))
 
     return {
         'total_found': total_found,
